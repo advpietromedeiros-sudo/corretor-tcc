@@ -1,0 +1,19 @@
+# Finais de linha fixados pelo repositório, não pelo core.autocrlf de cada máquina (HARNESS §A19).
+# O Git para Windows vem com core.autocrlf=true e converteria tudo para CRLF no checkout.
+* text=auto eol=lf
+
+# O cmd.exe interpreta mal rótulo e goto em .bat com LF: script do Windows fica em CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binários: nunca converter.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
