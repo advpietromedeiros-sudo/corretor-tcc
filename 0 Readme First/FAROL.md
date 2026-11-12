@@ -1,6 +1,8 @@
 # 🔦 FAROL — Corretor Acadêmico
 
-**Atualizado em 12/11/2026, 16h20.**
+**Atualizado em 12/11/2026, 16h35.**
+
+🌐 **Publicado (público, D-009):** https://advpietromedeiros-sudo.github.io/corretor-tcc/ · repositório `advpietromedeiros-sudo/corretor-tcc`.
 
 ## Estado
 
@@ -18,7 +20,6 @@
 
 ## Pendente
 
-- D-009: criar o repositório privado no GitHub e fazer o push.
 - D-010: substituir o PDF do manual embutido pela versão "corrigido", depois que o arquivo for salvo no computador.
 - A cópia para uso fica em `C:\Users\advpi\Downloads\Corretor_Academico_PreProjeto_TCC_3.html`. As versões antigas do Downloads continuam lá, intocadas.
 

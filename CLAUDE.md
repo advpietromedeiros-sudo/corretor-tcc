@@ -28,6 +28,9 @@ Não segue a pilha do portal: é um HTML autossuficiente. Node e Python servem s
 | instalar dependências de teste | `npm install` | volta em ~10 s |
 | teste de ponta a ponta (Chrome sem interface) | `npm test` | prende a tela ~5 min |
 | teste sem rede (pula LanguageTool) | `SEM_REDE=1 npm test` | prende a tela ~4 min |
+| teste rápido da página publicada | `node tests/smoke_url.mjs` | prende a tela ~30 s |
+
+**Publicação:** GitHub Pages da branch `master` → https://advpietromedeiros-sudo.github.io/corretor-tcc/ (repositório **público**, D-009). Todo push na `master` republica.
 
 O teste abre o `index.html` no Chrome e percorre **todas as funções**: abas, tema, demonstração,
 filtros, status, guia, Prompt Mestre, impressão, DOCX do aluno, relatório, gramática on-line, envio de
