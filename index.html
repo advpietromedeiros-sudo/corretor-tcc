@@ -306,7 +306,7 @@ body.cx-lock{overflow:hidden}
       <div><b>2</b><h3>Envie o arquivo</h3><p>Arraste o PDF ou DOCX. O arquivo é processado apenas neste computador; nada é enviado à internet (exceto se você acionar a revisão gramatical on-line).</p></div>
       <div><b>3</b><h3>Leia o painel</h3><p>Índice de conformidade, situação em relação ao padrão institucional, itens que impedem a conformidade e a lista de pendências por gravidade. Em cada item, “Como corrigir” abre a forma correta segundo o manual.</p></div>
       <div><b>4</b><h3>Revisão gramatical (opcional)</h3><p>O botão “Verificar gramática on-line” envia somente o texto do corpo ao LanguageTool (pt-BR) e acrescenta as sugestões ao painel e ao DOCX. Requer internet.</p></div>
-      <div><b>5</b><h3>Corrija com um clique</h3><p>Nas pendências com forma correta conhecida (citações, referências, DOI, palavras-chave, grafia, gramática do LanguageTool) e nos ajustes de formatação do DOCX (margens, A4, fonte, tamanho 12, entrelinhas 1,5, recuo 1,25 cm, justificado, títulos), clique em <b>✔ Aplicar correção</b> — ou em <b>Aplicar todas</b> — e depois em <b>⬇ Baixar arquivo corrigido</b>. No DOCX as mudanças entram como <b>alterações controladas do Word</b> (o aluno aceita ou rejeita); no PDF é gerado um DOCX com o texto já corrigido. Revise sempre o resultado: a correção é de forma, não de conteúdo.</p></div>
+      <div><b>5</b><h3>Corrija com um clique</h3><p>Nas pendências com forma correta conhecida (citações, referências, DOI, palavras-chave, grafia, gramática do LanguageTool) e nos ajustes de formatação do DOCX (margens, A4, fonte, tamanho 12, entrelinhas 1,5, recuo 1,25 cm, justificado, títulos), clique em <b>✔ Aplicar correção</b> — ou em <b>Aplicar todas</b> — e depois em <b>⬇ Baixar arquivo corrigido</b>. No DOCX as correções entram <b>direto no texto</b>, sem marcas; no PDF é gerado um DOCX com o texto já corrigido. Revise sempre o resultado: a correção é de forma, não de conteúdo.</p></div>
       <div><b>6</b><h3>Exporte</h3><p><b>DOCX do aluno</b> (trechos em vermelho e balões ligados ao trecho, sem balões na capa, com quadro de pendências ao final), <b>relatório .docx</b>, impressão ou <b>Prompt Mestre + texto</b> para revisão aprofundada no Claude.</p></div>
       <div><b>7</b><h3>Declaração de IA</h3><p>Na aba “Declaração de IA”, o aluno preenche e baixa a declaração no modelo oficial da instituição, pronta para assinar e anexar ao trabalho.</p></div>
     </div>
@@ -2560,7 +2560,7 @@ async function readDocx(buf){
       SM[id]=o;if(o.type==='paragraph'&&wat(so,'default')==='1')normalId=id;});}
   function sv(id,k){var g=0;while(id&&SM[id]&&g++<12){if(SM[id][k]!=null)return SM[id][k];id=SM[id].based;}return null;}
   function eff(id,k){var v=sv(id,k);if(v==null)v=sv(normalId,k);if(v==null)v=DEF[k];return v;}
-  var lines=[],ps=d.getElementsByTagNameNS(W,'p'),fonts={},sizes={},lns={},prevBreak=false,hasToc=false;
+  var lines=[],imgs=[],ps=d.getElementsByTagNameNS(W,'p'),fonts={},sizes={},lns={},prevBreak=false,hasToc=false;
   function inToc(n){for(var a=n.parentNode;a&&a.localName!=='body';a=a.parentNode){if(a.localName==='sdt'){var g=a.getElementsByTagNameNS(W,'docPartGallery')[0];if(g&&/table of contents/i.test(wat(g,'val')||''))return true;}}return false;}
   for(var i=0;i<ps.length;i++){
     var p=ps[i],t='',all=p.getElementsByTagNameNS(W,'*'),hasPgBr=false;
@@ -2577,7 +2577,8 @@ async function readDocx(buf){
       szc[sz]=(szc[sz]||0)+rt.length;fc[rf]=(fc[rf]||0)+rt.length;if(isB)bold+=rt.length;tot+=rt.length;}
     function topk(o){var b=null,m=0;for(var x in o)if(o[x]>m){m=o[x];b=x;}return b;}
     var isH=/heading|t(i|í)tulo|ttulo|title/i.test(st+' '+stName);
-    if(t.trim()){var L={t:t.replace(/\s+/g,' ').trim(),h:isH,pi:i,jc:jc,line:line,indL:indL,first:first,sz:+(topk(szc)||24),font:topk(fc),bold:tot?bold/tot:0,pb:pbb,tbl:!!(p.parentNode&&p.parentNode.localName==='tc')};if(inToc(p)||/^(toc|sum[aá]rio)\s*\d/i.test(stName)){L.toc=true;hasToc=true;}lines.push(L);
+    if(!t.trim()&&(p.getElementsByTagNameNS(W,'drawing').length||p.getElementsByTagName('w:pict').length||p.getElementsByTagNameNS(W,'object').length))imgs.push(i);
+    if(t.trim()){var L={t:t.replace(/\s+/g,' ').trim(),h:isH,pi:i,autonum:!!dkid(ppr,'numPr'),jc:jc,line:line,indL:indL,first:first,sz:+(topk(szc)||24),font:topk(fc),bold:tot?bold/tot:0,pb:pbb,tbl:!!(p.parentNode&&p.parentNode.localName==='tc')};if(inToc(p)||/^(toc|sum[aá]rio)\s*\d/i.test(stName)){L.toc=true;hasToc=true;}lines.push(L);
       if(!isH&&L.t.length>60&&!L.tbl){for(var k in fc)fonts[k]=(fonts[k]||0)+fc[k];for(var k2 in szc)sizes[k2]=(sizes[k2]||0)+szc[k2];lns[line]=(lns[line]||0)+1;}}
     else if(hasPgBr)prevBreak=true;
   }
@@ -2590,7 +2591,7 @@ async function readDocx(buf){
   if(top(fonts))fmt.runFont=top(fonts);if(top(sizes))fmt.runSz=top(sizes);if(top(lns))fmt.runLine=top(lns);
   var hdrs=Object.keys(zip.files).filter(function(n){return /^word\/header\d*\.xml$/.test(n);});fmt.pageNum=false;fmt.pageRight=false;
   for(var h=0;h<hdrs.length;h++){var hx=await zip.file(hdrs[h]).async('string');if(/\bPAGE\b/.test(hx)){fmt.pageNum=true;if(/w:jc w:val="(right|end)"/.test(hx))fmt.pageRight=true;}}
-  return {lines:lines,pages:null,fmt:fmt,kind:'DOCX',zipBuf:buf,toc:hasToc};
+  return {lines:lines,pages:null,fmt:fmt,kind:'DOCX',zipBuf:buf,toc:hasToc,imgs:imgs};
 }
 
 /* ---------------- segmentação ---------------- */
@@ -2615,7 +2616,7 @@ var SECDEF=[
 ];
 function secName(k){var d=SECDEF.filter(function(x){return x.k===k;})[0];return d?d.n:k;}
 function headKey(l){
-  if(l.toc)return null;var t=l.t.trim();if(t.length>85||t.length<4)return null;if(/\.{4,}|…{2,}|_{4,}/.test(t))return null;
+  if(l.toc||l.sumdoc)return null;var t=l.t.trim();if(t.length>85||t.length<4)return null;if(/\.{4,}|…{2,}|_{4,}/.test(t))return null;
   var numbered=/^(capitulo\s+)?[\divxl]+(\.\d+)*[\s.)\-–—:]+\S/i.test(t),letters=t.replace(/[^A-Za-zÀ-ÿ]/g,''),upper=letters&&letters===letters.toUpperCase();
   if(!l.h&&!numbered&&!upper){if(!/^[A-ZÀ-Ý]/.test(t)||/[.,;]$/.test(t))return null;}
   var s=nrm(t).replace(/^(capitulo\s+)?[\divxl]+(\.\d+)*[\s.)\-–—:]+/,'').replace(/[:.\s]+$/,'').replace(/\s+\d{1,3}$/,'').trim();
@@ -2623,12 +2624,25 @@ function headKey(l){
   for(var i=0;i<SECDEF.length;i++)if(SECDEF[i].re.test(s))return SECDEF[i].k;
   return null;
 }
+function markToc(lines){
+  /* SUMÁRIO antes da introdução = sumário do documento (pré-textual), não a seção 8 do projeto */
+  var si=-1;for(var i=0;i<lines.length;i++){if(/^sum[aá]rio$/i.test(lines[i].t.trim())){si=i;break;}}
+  if(si<0||lines[si].sumdoc)return;
+  for(var b=0;b<si;b++){if(!lines[b].toc&&headKey(lines[b])==='introducao')return;}
+  var seen={},any=false;
+  for(var j=si+1;j<lines.length&&j<si+80;j++){var L=lines[j],t=L.t.trim();if(L.toc){any=true;continue;}
+    if(t.length>95)break;var k=headKey(L);if(k&&seen[k])break;
+    if(k||/\s\d{1,3}$/.test(t)||/\.{3,}|…{2,}/.test(t)){if(k)seen[k]=1;L.toc=true;any=true;continue;}
+    if(any)break;}
+  lines[si].sumdoc=true;
+}
 function segment(lines){
+  markToc(lines);
   var c=[];lines.forEach(function(l,i){var k=headKey(l);if(k)c.push({k:k,i:i});});
   var segs=c.map(function(h,j){var end=j+1<c.length?c[j+1].i:lines.length,body=lines.slice(h.i+1,end);return {k:h.k,i:h.i,end:end,lines:body,text:body.map(function(x){return x.t;}).join('\n'),head:lines[h.i].t};});
   var S={};
   segs.forEach(function(sg){if(sg.k==='sumario'){S.sumario=sg;return;}if(!S[sg.k]||sg.text.length>S[sg.k].text.length)S[sg.k]=sg;});
-  Object.keys(S).forEach(function(k){if(k!=='sumario'&&k!=='objetivos'&&!S[k].text.trim())delete S[k];});
+  Object.keys(S).forEach(function(k){if(k!=='sumario'&&k!=='objetivos'&&k!=='cronograma'&&!S[k].text.trim())delete S[k];});
   if(S.sumario){var acc=[];for(var x=S.sumario.i+1;x<lines.length;x++){var tt=lines[x].t;if(tt.length>90)break;if(headKey(lines[x])){var sg2=segs.filter(function(q){return q.i===x;})[0];if(sg2&&sg2.text.length>220)break;}acc.push(tt);if(acc.length>40)break;}
     S.sumario.text=acc.join('\n');S.sumario.end=S.sumario.i+1+acc.length;if(!acc.length)delete S.sumario;}
   return {S:S,first:c.length?c[0].i:lines.length};
@@ -2832,7 +2846,7 @@ function fixRef(e){
   s=s.replace(/^([A-ZÀ-Ýa-zà-ÿ'\-]+(?: (?:Filho|Júnior|Junior|Neto|Sobrinho))?),\s/,function(m,a){return a.toUpperCase()+', ';});
   s=s.replace(/\b(\d+)\s*[ªa°º]\s*(?:ed\.?|edição|edicao)(?![a-z])/gi,'$1. ed.').replace(/\b(\d+)\s+ed\b\.?/g,'$1. ed.').replace(/\b(\d+)\.\s*ed\b(?!\.)/g,'$1. ed.').replace(/\b(\d+)\.ed\./g,'$1. ed.');
   s=s.replace(/\bpp\.\s*/g,'p. ').replace(/\bpág\.\s*/gi,'p. ').replace(/\b[Vv]ol\.\s*/g,'v. ');
-  if(!/^(BRASIL|[A-ZÀ-Ý ]+)\.\s*(\[?Constitui|Lei|Decreto|Medida|Emenda|Portaria|Resolu|Supremo|Superior|Tribunal|Minist)/.test(s))s=s.replace(/\b[Nn][º°o]\.?\s*(\d)/g,'n. $1');
+  if(!/^(BRASIL|[A-ZÀ-Ý ]+(\([A-Z]{2}\))?)\.\s*(\[?Constitui|Lei|Decreto|Medida|Emenda|Portaria|Resolu|Supremo|Superior|Tribunal|Minist)/.test(s)&&!/\b(Lei|Decreto|Resolu[cç][aã]o|Portaria|Emenda|Licita[cç][aã]o|Preg[aã]o|Edital|Processo)\s+(Complementar\s+)?[Nn][º°o]/.test(s))s=s.replace(/\b[Nn][º°o]\.?\s*(\d)/g,'n. $1');
   s=s.replace(/\bp\.(\d)/g,'p. $1').replace(/\bv\.(\d)/g,'v. $1').replace(/\bn\.(\d)/g,'n. $1');
   s=s.replace(/Dispon[ií]vel em:?\s*<\s*([^>\s]+)\s*>/i,'Disponível em: $1');
   s=s.replace(/(https?:\/\/\S+?)(\.?)\s+Acesso/i,function(m,u){return u.replace(/\.$/,'')+'. Acesso';});
@@ -2848,7 +2862,9 @@ function refType(e){
   if(/(Monografia|Disserta[cç][aã]o|Tese|Trabalho de Conclus)\s*\(/i.test(e))return 'ref_tcc';
   if(/\bAnais\b|\bIn:\s*(CONGRESSO|SEMIN|ENCONTRO|SIMP|JORNADA)/i.test(e))return 'ref_anais';
   if(/\bIn:\s/.test(e))return 'ref_capitulo';
-  if(/\bv\.\s*\d|\bn\.\s*\d|[Vv]ol\.|n[º°]\s*\d+,\s*p/.test(e))return 'ref_artigo';
+  if(/^[A-ZÀ-Ý][A-ZÀ-Ý ]+(\([A-Z]{2}\))?\.\s*(\[?Constitui|Lei|Decreto|Medida Provis|Emenda|Portaria|Resolu|Instru)/.test(e))return 'ref_legislacao';
+  var e2=e.replace(/\((Cole[cç][aã]o|S[eé]rie|Biblioteca)[^)]*\)/gi,'');
+  if(/\bv\.\s*\d|\bn\.\s*\d|[Vv]ol\.|n[º°]\s*\d+,\s*p/.test(e2))return 'ref_artigo';
   if(/https?:\/\//.test(e))return 'ref_online';
   return 'ref_livro';
 }
@@ -3067,7 +3083,13 @@ function analyze(doc,opt){
       Object.keys(miss).forEach(function(k){var c=miss[k];P('ref.ausente.'+nrm(k),'referencias','REFERÊNCIAS','ALTA','INC','“'+k+'” é citado no texto, mas não consta nas referências.','Toda obra citada deve constar na lista de referências (auditoria 1:1).','Inclua a referência completa da obra citada ou corrija a citação.','Citação e referência correspondem.',N.a10520,false,'ALTA',findLine(c.raw.slice(0,30),0,bodyEnd),short(c.raw,80));});
       Object.keys(ymis).forEach(function(k){var o=ymis[k];P('ref.anodiv.'+nrm(k),'referencias','CITAÇÃO','MEDIA','INC','Ano divergente: citado como '+o.c.y+' no texto, mas '+o.r.y+' nas referências ('+o.c.a.toUpperCase()+').','Autoria e ano devem ser consistentes entre citação e referência.','Confira na obra original qual é o ano correto e padronize.','Mesmo ano na citação e na referência.',N.a10520,false,'MEDIA',findLine(o.c.raw.slice(0,30),0,bodyEnd),short(o.c.raw,80));});
       var cs={};cit2.forEach(function(c){cs[nrm(c.a)]=1;});
-      if(cit2.length){rk.filter(function(r){return r.k&&!Object.keys(cs).some(function(a){return r.k.indexOf(a)===0||a.indexOf(r.k)===0;});}).slice(0,6).forEach(function(r){P('ref.naocit.'+r.k.slice(0,20),'referencias','REFERÊNCIAS','BAIXA','INC','Referência listada, mas não localizada no texto: '+r.k.toUpperCase()+'.','A lista deve conter apenas obras efetivamente usadas (salvo bibliografia adicional permitida).','Cite a obra no texto ou retire-a da lista.','Toda referência é citada.',N.e5,false,'MEDIA',findLine(r.e.slice(0,40),S.referencias.i),short(r.e));});}
+      var bodyN=nrm(lines.slice(seg.first,S.referencias.i).map(function(L){return L.t;}).join(' '));
+      var naoCit=rk.filter(function(r){return r.k&&!Object.keys(cs).some(function(a){return r.k.indexOf(a)===0||a.indexOf(r.k)===0;});});
+      naoCit=naoCit.filter(function(r){var lei=r.e.match(/\b(?:Lei|Decreto|Resolu[cç][aã]o|Portaria|Emenda)[^,.]{0,25}?n[º°o.]?\s*([\d.]+)/i);return !(lei&&bodyN.indexOf(nrm(lei[1]))>=0);});
+      var semAno=naoCit.filter(function(r){var sob=nrm(r.k).split(/\s+/).pop();return sob.length>=3&&new RegExp('\\b'+sob+'\\b').test(bodyN);});
+      semAno.slice(0,4).forEach(function(r){P('ref.semano.'+r.k.slice(0,20),'referencias','CITAÇÃO','BAIXA','OBJ','Autor mencionado no texto sem a chamada autor-data: '+r.k.toUpperCase()+'.','Pela NBR 10520:2023, toda menção a autor traz o ano (e a página, se direta): Di Pietro (2026) ou (Di Pietro, 2026).','Acrescente o ano da obra à menção ao autor no texto.','Autor citado com ano.',N.a10520,false,'ALTA',findLine(r.k.split(/\s+/).pop(),seg.first,S.referencias.i),short(r.e)).modelo='cit_autor_data';});
+      naoCit=naoCit.filter(function(r){return semAno.indexOf(r)<0;});
+      if(cit2.length){naoCit.slice(0,6).forEach(function(r){P('ref.naocit.'+r.k.slice(0,20),'referencias','REFERÊNCIAS','BAIXA','INC','Referência listada, mas não localizada no texto: '+r.k.toUpperCase()+'.','A lista deve conter apenas obras efetivamente usadas (salvo bibliografia adicional permitida).','Cite a obra no texto ou retire-a da lista.','Toda referência é citada.',N.e5,false,'MEDIA',findLine(r.e.slice(0,40),S.referencias.i),short(r.e));});}
       if(cit2.length&&!Object.keys(miss).length)FORT.push('Auditoria de citações: todas as obras citadas constam nas referências.');}
     P('ref.verificar','referencias','VERIFICAÇÃO NECESSÁRIA','BAIXA','VER','A existência e os dados de cada referência não podem ser confirmados offline.','Formato correto não prova existência; referências sugeridas por IA podem ser inventadas.','Confira cada referência na fonte original (DOI, ISBN, site oficial, PubMed/SciELO). Se não encontrar, corrija os dados ou retire.','Todas as referências conferidas na fonte.',N.ia,true,'ALTA',rLi);
   }
@@ -3107,8 +3129,10 @@ function analyze(doc,opt){
   if(ptOver)P('pt.recorrente',null,'PORTUGUÊS','BAIXA','OBJ','Há mais '+ptOver+' ocorrência(s) de desvios de linguagem semelhantes aos já apontados.','Pendência global: a revisão linguística precisa abranger todo o texto.','Faça uma revisão completa do texto (ou use a revisão gramatical on-line do corretor).','Texto revisado integralmente.','Gramática normativa',false,'MEDIA',null,'(diversos trechos)').modelo='pt_academico';
   /* siglas sem definição */
   (function(){var bodyTxt=lines.filter(function(L,i){return i>=seg.first&&i<rS0&&!headKey(L)&&L.t!==L.t.toUpperCase();}).map(function(L){return L.t;}).join('\n'),seen={},n=0;
-    var re=/\b([A-Z]{2,6})\b/g,m;var IGN=/^(ABNT|NBR|II|III|IV|VI|VII|VIII|IX|XI|XII|XX|XXI|RN|SP|RJ|MG|DF|BA|PE|CE|PB|PR|RS|SC|GO|ES|AM|PA|MA|PI|AL|SE|TO|RO|AC|AP|RR|MT|MS|OK|TCC|ISBN|ISSN|DOI|URL|CPF|CNPJ|EUA|ONU|OMS|IA|IBGE|SUS|PDF|DOCX|HTML|NOVA|PICO|PECO|ODS)$/;
-    while((m=re.exec(bodyTxt))&&n<4){var sg=m[1];if(seen[sg]||IGN.test(sg))continue;seen[sg]=1;
+    var re=/(?:^|[^A-Za-zÀ-ÿ])([A-Z]{2,6})(?![A-Za-zÀ-ÿ])/g,m;var IGN=/^(ABNT|NBR|II|III|IV|VI|VII|VIII|IX|XI|XII|XX|XXI|RN|SP|RJ|MG|DF|BA|PE|CE|PB|PR|RS|SC|GO|ES|AM|PA|MA|PI|AL|SE|TO|RO|AC|AP|RR|MT|MS|OK|TCC|ISBN|ISSN|DOI|URL|CPF|CNPJ|EUA|ONU|OMS|IA|IBGE|SUS|PDF|DOCX|HTML|NOVA|PICO|PECO|ODS)$/;
+    while((m=re.exec(bodyTxt))&&n<4){var sg=m[1];if(seen[sg]||IGN.test(sg)||/^[IVXLCDM]+$/.test(sg))continue;
+      var ctxA=bodyTxt.slice(Math.max(0,m.index-25),m.index+m[0].length+25);if(/[A-ZÀ-Ý]{3,}[\s:,–-]+[A-ZÀ-Ý]{2,}[\s:,–-]+[A-ZÀ-Ý]{2,}/.test(ctxA)||new RegExp(sg+'\\s*:').test(ctxA))continue;
+      seen[sg]=1;
       if(new RegExp('\\(\\s*'+sg+'\\s*[)\\-–,]').test(bodyTxt)||new RegExp(sg+'\\s*[–\\-]\\s*[A-ZÀ-Ý][a-zà-ÿ]').test(bodyTxt))continue;
       if(new RegExp('\\('+sg+',\\s*(19|20)\\d{2}').test(bodyTxt)||new RegExp('^'+sg+'\\.','m').test(lines.slice(rS0).map(function(x){return x.t;}).join('\n')))continue;
       n++;var li=findLine(sg,seg.first,rS0);P('pt.sigla.'+sg,null,'PORTUGUÊS','BAIXA','OBJ','Sigla “'+sg+'” usada sem a forma por extenso na primeira ocorrência.','Na primeira menção, escreve-se o nome completo seguido da sigla entre parênteses; depois, apenas a sigla.','Escreva por extenso na primeira ocorrência: “Nome completo da entidade ('+sg+')”.','Toda sigla definida na primeira ocorrência.',N.a14724,false,'MEDIA',li,sg).modelo='pt_academico';}})();
@@ -3159,7 +3183,7 @@ function analyze(doc,opt){
     var qre=/[“"]([^”"]{12,})[”"]/g;
     while((m=qre.exec(t))){var q=m[1],after=t.slice(m.index+m[0].length,m.index+m[0].length+70),before=t.slice(Math.max(0,m.index-90),m.index);
       if(wc(q)<4)continue;
-      var hasPage=/(p\.|p[áa]g\.?|pg\.?)\s*\d/i.test(after)||/(p\.|p[áa]g\.?|pg\.?)\s*\d/i.test(before);
+      var LOC=/(p\.|p[áa]g\.?|pg\.?)\s*\d|\bart\.\s*\d|§\s*\d|\binc(iso)?\.?\s*[ivxl\d]|\bn\.\s?p\.|\bon-?line\b|\bnão paginad/i,hasPage=LOC.test(after)||LOC.test(before);
       if(wc(q)>40)FX(P('cit.longa.inline.'+i+'.'+m.index,null,'CITAÇÃO','ALTA','OBJ','Citação direta com mais de três linhas escrita entre aspas no corpo do parágrafo.','Pelo Manual FCRN, citação com mais de três linhas vai em parágrafo próprio, sem aspas, recuo de 4 cm, fonte 10 e espaçamento simples.','Destaque a citação em parágrafo separado com a formatação indicada (sem aspas), mantendo autor, ano e página.','Citação longa em bloco recuado, fonte 10, simples, sem aspas.',N.man,false,'ALTA',i,short(m[0],120)),m[0],null,'cit_direta_longa');
       else if(!hasPage&&wc(q)>=6)FX(P('cit.pag.'+i+'.'+m.index,null,'CITAÇÃO','MEDIA','OBJ','Citação direta sem indicação de página.','Toda transcrição literal exige a página (ou localização, em documento não paginado).','Acrescente a página na chamada: (Sobrenome, ano, p. X) ou Sobrenome (ano, p. X).','A citação direta indica a página.',N.a10520,false,'MEDIA',i,short(m[0],120)),m[0],null,'cit_direta_curta');}
     if(isDocx&&L.indL>=1900&&L.indL<=2700&&wc(t)>15){var pr=[];if(L.sz&&L.sz!==20)pr.push('fonte '+(L.sz/2)+' (deve ser 10)');if(L.line&&Math.abs(L.line-240)>12)pr.push('entrelinhas '+(L.line/240).toFixed(1).replace('.',',')+' (deve ser simples)');if(/^[“"]|[”"]\s*(\(|$)/.test(t))pr.push('aspas (não se usam na citação longa)');
@@ -3169,12 +3193,13 @@ function analyze(doc,opt){
   /* títulos de seção */
   var cands=[];lines.forEach(function(L,i){var k=headKey(L);if(k&&!(i>sumA&&i<sumB)&&i>=tStart)cands.push({k:k,i:i,t:L.t});});
   cands.forEach(function(h,j){var t=h.t,m=t.match(/^(\d+(?:\.\d+)*)\s*[.)\-–—:]+\s*(\S.*)$/);
-    if(m&&!/^\d+\.\d/.test(t.slice(0,m[1].length+2))){FX(P('head.pont.'+h.i,null,'ABNT','BAIXA','OBJ','Indicativo numérico separado do título por pontuação (“'+short(t,40)+'”).','A NBR 6024 e o Manual FCRN determinam que o indicativo seja separado do título apenas por um espaço.','Retire o ponto/hífen/travessão após o número.','Título no formato “1 INTRODUÇÃO”.',N.a6024,false,'ALTA',h.i,t),t,m[1]+' '+m[2],'fmt_titulos');}
+    var semInd0=/^(referencias|resumo|abstract)$/.test(h.k)||(h.k==='sumario'&&!/proposta|provis/.test(nrm(t)));
+    if(m&&!semInd0&&!/^\d+\.\d/.test(t.slice(0,m[1].length+2))){FX(P('head.pont.'+h.i,null,'ABNT','BAIXA','OBJ','Indicativo numérico separado do título por pontuação (“'+short(t,40)+'”).','A NBR 6024 e o Manual FCRN determinam que o indicativo seja separado do título apenas por um espaço.','Retire o ponto/hífen/travessão após o número.','Título no formato “1 INTRODUÇÃO”.',N.a6024,false,'ALTA',h.i,t),t,m[1]+' '+m[2],'fmt_titulos');}
     var semInd=/^(referencias|resumo|abstract)$/.test(h.k)||(h.k==='sumario'&&!/proposta|provis/.test(nrm(t)));
     if(semInd&&/^\d/.test(t))FX(P('head.numsem.'+h.i,null,'ABNT','BAIXA','OBJ','“'+short(t,40)+'” não deve receber indicativo numérico.','Referências, resumo, sumário, apêndices e anexos são títulos sem indicativo e centralizados.','Retire o número e centralize o título.','Título sem número, centralizado.',N.man,false,'ALTA',h.i,t),t,t.replace(/^\d+(\.\d+)*[\s.)\-–—:]*/,'').toUpperCase(),'fmt_titulos');
     if(isDocx){var L=lines[h.i];if(semInd&&L.jc!=='center')FX(P('head.centro.'+h.i,null,'FORMATAÇÃO','BAIXA','OBJ','Título sem indicativo numérico (“'+short(t,30)+'”) não está centralizado.','Títulos sem indicativo numérico devem ser centralizados.','Centralize o título.','Título centralizado.',N.man,false,'ALTA',h.i,t),t,null,'fmt_titulos');
       if(/^\d/.test(t)&&L.jc==='center')FX(P('head.esq.'+h.i,null,'FORMATAÇÃO','BAIXA','OBJ','Título com indicativo numérico centralizado (“'+short(t,30)+'”).','Seções numeradas são alinhadas à esquerda.','Alinhe o título à esquerda.','Título numerado à esquerda.',N.man,false,'ALTA',h.i,t),t,null,'fmt_titulos');}
-    var nx=cands[j+1];if(nx&&nx.i===h.i+1&&h.k!=='objetivos')FX(P('head.semtexto.'+h.i,null,'ESTRUTURA','BAIXA','SUG','A seção “'+short(t,40)+'” não tem texto próprio antes da subseção seguinte.','O Manual FCRN considera indispensável que haja texto relacionado a todas as seções e subseções.','Inclua um parágrafo introdutório da seção.','Toda seção tem texto próprio.',N.man,false,'MEDIA',h.i,t),null,null,'fmt_titulos');
+    var nx=cands[j+1];if(nx&&nx.i===h.i+1&&h.k!=='objetivos'&&h.k!=='cronograma')FX(P('head.semtexto.'+h.i,null,'ESTRUTURA','BAIXA','SUG','A seção “'+short(t,40)+'” não tem texto próprio antes da subseção seguinte.','O Manual FCRN considera indispensável que haja texto relacionado a todas as seções e subseções.','Inclua um parágrafo introdutório da seção.','Toda seção tem texto próprio.',N.man,false,'MEDIA',h.i,t),null,null,'fmt_titulos');
     if(h.k==='introducao'&&!/^(\d+[\s.)\-–—:]*)?introdu[cç][aã]o$/i.test(t.trim()))FX(P('head.intro.'+h.i,null,'ABNT','BAIXA','OBJ','O primeiro elemento textual deve se chamar exclusivamente “INTRODUÇÃO”.','Regra do Manual FCRN.','Renomeie o título para “1 INTRODUÇÃO”.','Título “1 INTRODUÇÃO”.',N.man,false,'ALTA',h.i,t),t,'1 INTRODUÇÃO','est_introducao');
   });
   /* ilustrações e tabelas */
@@ -3194,7 +3219,7 @@ function analyze(doc,opt){
   /* referências — rigor por entrada */
   if(S.referencias){var entsR=refEntries(S.referencias,isDocx),seen={},rN=0;
     entsR.forEach(function(e,ix){var li=findLine(e.slice(0,40),S.referencias.i),fr=fixRef(e),tp=refType(e),pr3=[];
-      if(fr!==e){if(/\d\s*[ªº°]|\d+\s+ed\b|\d\.ed/i.test(e))pr3.push('edição fora do padrão “2. ed.”');if(/\bpp\.|pág\./i.test(e))pr3.push('páginas devem ser indicadas com “p.”');if(/\b[Vv]ol\./.test(e))pr3.push('volume deve ser “v.”');if(/[Nn][º°o]\.?\s*\d/.test(e)&&/n\. \d/.test(fr)&&!/n\. \d/.test(e))pr3.push('número de periódico deve ser “n.”');if(/acess(o|ado) em:?\s*\d{1,2}\/|acess(o|ado) em:?\s*\d{1,2} de/i.test(e))pr3.push('data de acesso deve ter mês abreviado (ex.: 15 jun. 2019)');if(/<\s*https?:/i.test(e))pr3.push('endereço eletrônico não leva < >');if(/^[A-ZÀ-Ý][a-zà-ÿ]+,\s/.test(e))pr3.push('sobrenome do autor deve estar em MAIÚSCULAS');if(/https?:\/\//.test(e)&&!/Dispon[ií]vel em/i.test(e))pr3.push('falta “Disponível em:”');
+      if(fr!==e){if(/\d\s*[ªº°]|\d+\s+ed\b|\d\.ed/i.test(e))pr3.push('edição fora do padrão “2. ed.”');if(/\bpp\.|pág\./i.test(e))pr3.push('páginas devem ser indicadas com “p.”');if(/\b[Vv]ol\./.test(e))pr3.push('volume deve ser “v.”');if(/[Nn][º°o]\.?\s*\d/.test(e)&&/n\. \d/.test(fr)&&!/n\. \d/.test(e)&&!/\b(lei|decreto|resolu|portaria|emenda|medida provis|constitui|instru[cç][aã]o normativa|s[uú]mula|ac[oó]rd[aã]o|processo|recurso|habeas|licita[cç][aã]o|preg[aã]o|edital)\b/i.test(e))pr3.push('número de periódico deve ser “n.”');if(/acess(o|ado) em:?\s*\d{1,2}\/|acess(o|ado) em:?\s*\d{1,2} de/i.test(e))pr3.push('data de acesso deve ter mês abreviado (ex.: 15 jun. 2019)');if(/<\s*https?:/i.test(e))pr3.push('endereço eletrônico não leva < >');if(/^[A-ZÀ-Ý][a-zà-ÿ]+,\s/.test(e))pr3.push('sobrenome do autor deve estar em MAIÚSCULAS');if(/https?:\/\//.test(e)&&!/Dispon[ií]vel em/i.test(e))pr3.push('falta “Disponível em:”');
         if(rN++<12)FX(P('ref.form.'+ix,'referencias','ABNT','BAIXA','OBJ','Referência fora do padrão do Manual FCRN: '+(pr3.join('; ')||'pontuação/elementos')+'.','As referências devem seguir rigorosamente a ordem e a pontuação dos modelos do manual.','Substitua pela forma corrigida e confira os demais elementos na obra.','Referência no padrão do modelo correspondente.',N.a6023,false,'MEDIA',li,short(e,140)),e,fr,tp);}
       if(/_{3,}/.test(e))FX(P('ref.traco.'+ix,'referencias','ABNT','BAIXA','OBJ','Uso de traço no lugar do nome do autor repetido.','O Manual FCRN determina que o nome do autor seja indicado em todas as obras.','Repita o nome do autor.','Autor indicado em todas as referências.',N.man,false,'ALTA',li,short(e,140)),e,null,'ref_autor');
       if(tp==='ref_livro'&&!/[A-ZÀ-Ýa-zà-ÿ\]]\s*:\s*[^:]{2,60},\s*\[?(19|20)\d{2}/.test(e)&&!/s\.l\.|s\.n\./.test(e))FX(P('ref.livroel.'+ix,'referencias','REFERÊNCIAS','MEDIA','FRA','Referência de livro sem a sequência “Local: Editora, ano.”.','Local, editora e ano são elementos essenciais da referência de livro.','Complete com cidade, dois-pontos, editora, vírgula e ano (use [s.l.] / [s.n.] se não identificados).','Referência com Local: Editora, ano.',N.man,false,'MEDIA',li,short(e,140)),e,null,'ref_livro');
@@ -3256,7 +3281,7 @@ function analyze(doc,opt){
     if(!hasSum)P('tpl.sumario',null,'ESTRUTURA','BAIXA','OBJ','Não foi localizado o SUMÁRIO do projeto antes da introdução.','O modelo prevê sumário (título centralizado, sem indicativo) listando as seções do projeto com a página inicial de cada uma.','Insira o SUMÁRIO após a folha de rosto (no Word: Referências → Sumário).','Sumário presente e atualizado.','Modelo de projeto de pesquisa · TCC I; ABNT NBR 6027:2012',false,'MEDIA',null,'(pré-textuais)').modelo='est_sumario';
     /* numeração, títulos e ordem das seções */
     var pos=[];TPLSEC.forEach(function(e){var sg=S[e.k];if(!sg)return;pos.push({e:e,i:sg.i});if(e.k==='referencias'&&/^\d/.test(sg.head.trim()))return;var h=sg.head.trim(),mm=h.match(/^(\d+(?:\.\d+)*)[\s.)\-–—:]*/),num=mm?mm[1]:'',nh=nrm(h).replace(/^[\d.\s)\-–—:]+/,'');
-      var okNum=e.n?num===e.n:!num,okNome=e.re.test(nh),okCaixa=e.n.indexOf('.')>=0||!/[a-zà-ÿ]/.test(h.replace(/:.*$/,''));
+      var okNum=e.n?(num===e.n||(!num&&lines[sg.i]&&lines[sg.i].autonum)):!num,okNome=e.re.test(nh),okCaixa=e.n.indexOf('.')>=0||!/[a-zà-ÿ]/.test(h.replace(/:.*$/,''));
       if(!okNum||!okNome||!okCaixa){var pr2=[];if(!okNum)pr2.push(e.n?'numeração “'+(num||'sem número')+'” (modelo: '+e.n+')':'não leva número');if(!okNome)pr2.push('título diferente do modelo');if(!okCaixa)pr2.push('seção primária deve estar em MAIÚSCULAS');
         var o=P('tpl.sec.'+e.k,e.k,'ESTRUTURA','MEDIA','OBJ','Título da seção fora do modelo institucional (“'+short(h,50)+'”): '+pr2.join('; ')+'.','O projeto segue a estrutura fixa do modelo de TCC I: 1 INTRODUÇÃO, 2 JUSTIFICATIVA, 3 HIPÓTESES, 4 OBJETIVOS (4.1 e 4.2), 5 FUNDAMENTAÇÃO TEÓRICA, 6 METODOLOGIA, 7 CRONOGRAMA, 8 PROPOSTA DE SUMÁRIO PARA A MONOGRAFIA e REFERÊNCIAS.','Renomeie para “'+e.f+'”.','Título e numeração idênticos ao modelo.','Modelo de projeto de pesquisa · TCC I; ABNT NBR 6024:2012',false,'ALTA',sg.i,h);o.alvo=h;if(e.f!==h)o.fix=e.f;o.modelo='tpl_estrutura';}});
     for(var q=1;q<pos.length;q++){if(pos[q].i<pos[q-1].i){P('tpl.ordem',null,'ESTRUTURA','MEDIA','OBJ','Ordem das seções diferente do modelo: “'+pos[q].e.f+'” aparece antes de “'+pos[q-1].e.f+'”.','A sequência das seções é fixada pelo modelo da disciplina.','Reorganize as seções na ordem do modelo.','Seções na ordem do modelo.','Modelo de projeto de pesquisa · TCC I',false,'ALTA',null,'(estrutura do projeto)').modelo='tpl_estrutura';break;}}
@@ -3274,7 +3299,8 @@ function analyze(doc,opt){
     if(S.objgeral){var gi2=splitItems(sec('objgeral')).filter(function(x){return infinitive(x);});if(gi2.length>1)P('tpl.og.unico','objetivos','OBJETIVO','MEDIA','OBJ','Há '+gi2.length+' objetivos gerais.','O modelo determina apenas um objetivo geral.','Mantenha um único objetivo geral; os demais podem virar objetivos específicos.','Um único objetivo geral.','Modelo de projeto de pesquisa · TCC I; E-book 3',false,'ALTA',S.objgeral.i,S.objgeral.head).modelo='tcc1_objetivos';}
     if(oe.length>1){var vs={},dup=[];oe.forEach(function(it){var v=infinitive(it);if(!v)return;if(vs[v]&&dup.indexOf(v)<0)dup.push(v);vs[v]=1;});
       if(dup.length)P('tpl.oe.verbos','objetivos','OBJETIVO','BAIXA','OBJ','Verbo(s) repetido(s) nos objetivos específicos: '+dup.join(', ')+'.','O modelo orienta evitar repetição de verbos nos objetivos específicos.','Substitua os verbos repetidos por outros no infinitivo (identificar, descrever, caracterizar, comparar, verificar…).','Cada objetivo específico com verbo próprio.','Modelo de projeto de pesquisa · TCC I; E-book 3',false,'ALTA',findLine(oe.filter(function(it){return infinitive(it)===dup[0];})[1].slice(0,40)),short(oe.filter(function(it){return infinitive(it)===dup[0];})[1])).modelo='tcc1_objetivos';}
-    if(S.cronograma&&isDocx&&!S.cronograma.lines.some(function(L){return L.tbl;}))P('tpl.cron.tab','cronograma','ESTRUTURA','MEDIA','OBJ','Cronograma sem tabela (etapas × meses).','O modelo apresenta o cronograma em tabela com as etapas nas linhas e os meses do semestre nas colunas.','Monte a tabela do cronograma conforme o modelo.','Cronograma em tabela.','Modelo de projeto de pesquisa · TCC I',false,'ALTA',S.cronograma.i,S.cronograma.head).modelo='tpl_estrutura';
+    var cronImg=S.cronograma&&isDocx&&(function(){var pA=lines[S.cronograma.i].pi,nx=lines[S.cronograma.end],pB=nx&&nx.pi!=null?nx.pi:1e9;return (doc.imgs||[]).some(function(x){return x>pA&&x<pB;});})();
+    if(S.cronograma&&isDocx&&!cronImg&&!S.cronograma.lines.some(function(L){return L.tbl;}))P('tpl.cron.tab','cronograma','ESTRUTURA','MEDIA','OBJ','Cronograma sem tabela (etapas × meses).','O modelo apresenta o cronograma em tabela com as etapas nas linhas e os meses do semestre nas colunas.','Monte a tabela do cronograma conforme o modelo.','Cronograma em tabela.','Modelo de projeto de pesquisa · TCC I',false,'ALTA',S.cronograma.i,S.cronograma.head).modelo='tpl_estrutura';
     }}
 
   /* foco: estrutura, ABNT, padrão institucional e linguagem (sem juízo de mérito) */
@@ -3526,7 +3552,10 @@ function replaceSpan(dx,p,alvo,fix,track,author,date,idref){
       sel.forEach(function(r){if(track){var del=wEl(dx,'del');wSet(del,'id',idref.n++);wSet(del,'author',author);wSet(del,'date',date);r.parentNode.insertBefore(del,r);del.appendChild(r);
           [].slice.call(r.childNodes).forEach(function(c){if(c.localName==='t'){var dt=wEl(dx,'delText');dt.setAttributeNS(XMLNS,'xml:space','preserve');dt.textContent=c.textContent;r.replaceChild(dt,c);}});}
         else r.parentNode.removeChild(r);});}
-    else if(host){if(after&&after.parentNode)after.parentNode.insertBefore(host,after);else{var last=textRuns(p).slice(-1)[0];if(last&&last.parentNode)last.parentNode.insertBefore(host,last.nextSibling);else p.appendChild(host);}}
+    else if(host){var endR=op.s>=A.length?runsIn(p,s-1,s)[0]:null;
+      if(endR&&endR.parentNode)endR.parentNode.insertBefore(host,endR.nextSibling);
+      else if(after&&after.parentNode)after.parentNode.insertBefore(host,after);
+      else{var last=textRuns(p).slice(-1)[0];if(last&&last.parentNode)last.parentNode.insertBefore(host,last.nextSibling);else p.appendChild(host);}}
   });
   return true;}
 function bodyLines(res){var t0=res.tStart||0,r0=res.S.referencias?res.S.referencias.i:res.lines.length;
@@ -3541,7 +3570,7 @@ function runsSet(dx,p,fn){[].forEach.call(p.getElementsByTagNameNS(W,'r'),functi
 function rprSet(dx,rp,name,attrs,first){var el=null;for(var i=0;i<rp.childNodes.length;i++)if(rp.childNodes[i].localName===name){el=rp.childNodes[i];break;}
   if(!el){el=wEl(dx,name);if(first)rp.insertBefore(el,rp.firstChild);else rp.appendChild(el);}Object.keys(attrs).forEach(function(a){wSet(el,a,attrs[a]);});}
 async function fixedDocx(doc,res,opt){
-  opt=opt||{};var track=opt.track!==false,author=opt.author||'Corretor Acadêmico',date=new Date().toISOString().replace(/\.\d+Z$/,'Z');
+  opt=opt||{};var track=opt.track===true,author=opt.author||'Corretor Acadêmico',date=new Date().toISOString().replace(/\.\d+Z$/,'Z');
   var zip=await JSZip.loadAsync(doc.zipBuf),dp=new DOMParser(),xs=new XMLSerializer();
   var dx=dp.parseFromString(await zip.file('word/document.xml').async('string'),'application/xml'),ps=dx.getElementsByTagNameNS(W,'p');
   var ap=res.C.filter(function(c){return c.aplicar&&canFix(c,'DOCX');}),idref={n:90000},nTxt=0,nFmt=0,fail=[];
@@ -3626,7 +3655,7 @@ CX.mount=function(root,o){
   root.classList.add('cx');
   root.innerHTML=
    '<div class="cx-cfg">'+
-     '<div class="cx-f"><label>Curso / área</label><select data-k="curso">'+Object.keys(CURSOS).map(function(k){return '<option value="'+k+'">'+CURSOS[k]+'</option>';}).join('')+'</select></div>'+
+
      '<div class="cx-f"><label>Tipo de documento</label><select data-k="tipo"><option value="auto">Detectar automaticamente</option><option value="B">Projeto / pré-projeto completo</option><option value="D">Seções parciais</option><option value="C">Seção isolada</option><option value="A">TCC / monografia completa</option></select></div>'+
      '<div class="cx-f cx-auth"><label>Nome nos balões do Word</label><input data-k="author" value="'+esc(st.author)+'"></div>'+
    '</div>'+
@@ -3634,9 +3663,9 @@ CX.mount=function(root,o){
    '<div class="cx-row"><button class="cx-btn" data-a="demo">▶ Demonstração com exemplo</button></div><input type="file" accept=".pdf,.docx,.doc" hidden></div>'+
    '<div class="cx-st"></div><div class="cx-rep"></div>';
   var $=function(s){return root.querySelector(s);},$$=function(s){return root.querySelectorAll(s);};
-  function syncCfg(){$('select[data-k=curso]').value=st.curso;$('select[data-k=tipo]').value=st.tipo;if(o.lockCurso)$('select[data-k=curso]').disabled=false;}
+  function syncCfg(){st.curso='geral';$('select[data-k=tipo]').value=st.tipo;}
   syncCfg();
-  $('select[data-k=curso]').addEventListener('change',function(){st.curso=this.value;LS.set('curso',st.curso);if(cur)rerun();});
+
   $('select[data-k=tipo]').addEventListener('change',function(){st.tipo=this.value;if(cur)rerun();});
   $('input[data-k=author]').addEventListener('input',function(){st.author=this.value;LS.set('author',st.author);});
   var drop=$('.cx-drop'),fin=$('input[type=file]'),cur=null;
@@ -3660,7 +3689,7 @@ CX.mount=function(root,o){
   }
   function rerun(){
     var keep={};if(cur.res)cur.res.C.forEach(function(c){keep[c.key]={ap:c.aplicar,st:c.status};});
-    var res=analyze(cur.doc,{curso:st.curso,tipo:st.tipo});if(cur.lt&&cur.lt.length)mergeLT(res,cur.lt);
+    var res=analyze(cur.doc,{curso:'geral',tipo:st.tipo});if(cur.lt&&cur.lt.length)mergeLT(res,cur.lt);
     var same=!!(cur.res&&cur.hist),hist=applyHistory(res,cur.fname);
     if(same){var prevCmp=cur.hist.cmp;res.C.forEach(function(c){var k=keep[c.key];c.rev=null;if(k){c.aplicar=k.ap;c.status=k.st;}else c.status='PENDENTE';});hist.cmp=prevCmp;}
     hist.save();cur.res=res;cur.hist=hist;status('');render();
@@ -3671,7 +3700,7 @@ CX.mount=function(root,o){
     var h='<div class="cx-panel"><div class="cx-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" class="bg"/><circle cx="60" cy="60" r="54" class="fg" style="stroke:'+col+';stroke-dasharray:'+circ+';stroke-dashoffset:'+circ+'" data-off="'+off+'"/></svg><div class="cx-sc"><b style="color:'+col+'">'+res.score+'%</b><span>conformidade</span></div></div>'+
      '<div class="cx-pm"><div class="cx-fn">📄 '+esc(cur.fname)+' <span>· '+cur.doc.kind+(cur.doc.pages?' · '+cur.doc.pages+' pág.':'')+' · '+res.words+' palavras</span></div>'+
      (res.title?'<div class="cx-title">'+esc(res.title)+'</div>':'')+
-     '<div class="cx-tags"><span><b>Tipo:</b> '+esc(res.tipo)+'</span><span><b>Escopo:</b> '+(res.completo?'completo':'parcial')+'</span><span><b>Área:</b> '+CURSOS[st.curso]+'</span></div>'+
+     '<div class="cx-tags"><span><b>Tipo:</b> '+esc(res.tipo)+'</span><span><b>Escopo:</b> '+(res.completo?'completo':'parcial')+'</span></div>'+
      '<div class="cx-cnt"><span class="g0">'+c.CRITICA+' críticas</span><span class="g1">'+c.ALTA+' altas</span><span class="g2">'+c.MEDIA+' médias</span><span class="g3">'+c.BAIXA+' baixas</span></div></div>'+
      '<div class="cx-rec r-'+res.rec.k+'"><small>Situação · padrão institucional</small><b>'+esc(res.rec.t)+'</b><p>'+esc(res.rec.d)+'</p><em>Estrutura, ABNT e linguagem — não avalia mérito.</em></div></div>';
     if(!res.completo)h+='<div class="cx-scope">🔎 <b>Escopo detectado: análise parcial</b> — foram avaliadas apenas as seções presentes no arquivo. Seções ausentes não foram penalizadas.</div>';
@@ -3680,7 +3709,7 @@ CX.mount=function(root,o){
     h+='<div class="cx-two"><div><h4>✅ Pontos fortes</h4>'+(res.FORT.length?'<ul>'+res.FORT.map(function(f){return '<li>'+esc(f)+'</li>';}).join('')+'</ul>':'<p class="cx-mu">Nenhum ponto forte identificado automaticamente.</p>')+'</div><div><h4>⛔ Impedem a conformidade</h4>'+(res.bloq.length?'<ul>'+res.bloq.map(function(b){return '<li><b>'+b.id+'</b> '+esc(b.problema)+'</li>';}).join('')+'</ul>':'<p class="cx-mu">Nenhum item impeditivo identificado.</p>')+'</div></div>';
     h+='<div class="cx-diag"><h4>Diagnóstico geral</h4><p>'+esc(diagText(res))+'</p><div class="cx-axes">'+[['Estrutura (modelo)',res.conf.met],['Linguagem acadêmica',res.conf.lin],['Citações e referências',res.conf.cit],['ABNT / formatação',res.conf.abnt],['Integridade e fontes',res.conf.int]].map(function(a){var cc=a[1]>=80?'ok':(a[1]>=60?'warn':'err');return '<div><span>'+a[0]+'</span><i class="'+cc+'"><em style="width:'+a[1]+'%"></em></i><b>'+a[1]+'%</b></div>';}).join('')+'</div></div>';
     var nFix=res.C.filter(function(x){return canFix(x,cur.doc.kind);}).length,nAp=res.C.filter(function(x){return x.aplicar;}).length;
-    h+='<div class="cx-auto"><div><b>🪄 Correção automática</b><span>'+nFix+' pendência(s) podem ser corrigidas com um clique'+(cur.doc.kind==='DOCX'?' (texto e formatação)':' (texto; o PDF não guarda a formatação)')+'. Aplique uma a uma na lista abaixo ou todas de uma vez e baixe o arquivo já corrigido.</span></div><div class="cx-autob"><button class="cx-btn" data-a="apall"'+(nFix?'':' disabled')+'>✔ Aplicar todas ('+nFix+')</button><button class="cx-btn solid" data-a="fixdl"'+(nAp?'':' disabled')+'>⬇ Baixar arquivo corrigido'+(nAp?' ('+nAp+')':'')+'</button>'+(cur.doc.kind==='DOCX'?'<label><input type="checkbox" data-o="track"'+(LS.get('track',true)?' checked':'')+'> mostrar as mudanças como “alterações controladas” do Word (o aluno aceita ou rejeita)</label>':'')+'</div></div>';
+    h+='<div class="cx-auto"><div><b>🪄 Correção automática</b><span>'+nFix+' pendência(s) podem ser corrigidas com um clique'+(cur.doc.kind==='DOCX'?' (texto e formatação)':' (texto; o PDF não guarda a formatação)')+'. Aplique uma a uma na lista abaixo ou todas de uma vez e baixe o arquivo já corrigido — as correções entram direto no texto, sem marcas.</span></div><div class="cx-autob"><button class="cx-btn" data-a="apall"'+(nFix?'':' disabled')+'>✔ Aplicar todas ('+nFix+')</button><button class="cx-btn solid" data-a="fixdl"'+(nAp?'':' disabled')+'>⬇ Baixar arquivo corrigido'+(nAp?' ('+nAp+')':'')+'</button>'+'</div></div>';
     h+='<div class="cx-exp"><button class="cx-btn solid" data-a="rdocx">⬇ Relatório (.docx)</button>'+(cur.doc.kind==='DOCX'?'<button class="cx-btn solid" data-a="sdocx">📝 DOCX do aluno (vermelho + balões)</button>':'')+'<button class="cx-btn" data-a="guia">📘 Guia ABNT · FCRN</button><button class="cx-btn" data-a="print">🖨 Imprimir</button><button class="cx-btn" data-a="prompt">🤖 Copiar Prompt Mestre + texto</button><button class="cx-btn" data-a="raw">Texto extraído</button><button class="cx-btn" data-a="new">↺ Nova análise</button></div>'+(cur.doc.kind==='DOCX'?'<div class="cx-opts"><label><input type="checkbox" data-o="red" checked> destacar em vermelho os trechos a corrigir</label><label><input type="checkbox" data-o="quadro" checked> anexar quadro de pendências ao final</label><span>Capa e folha de rosto não recebem balões; pendências gerais vão em um único balão na Introdução.</span></div>':'<div class="cx-opts"><span>Para gerar o DOCX do aluno com trechos em vermelho e balões, envie o arquivo em .docx.</span></div>');
     h+='<div class="cx-lt"><div class="cx-lth"><b>🔤 Revisão gramatical avançada <span>opcional · on-line</span></b><p>Envia <b>somente o texto do corpo</b> (sem capa, folha de rosto ou referências) ao serviço público <b>LanguageTool</b> (pt-BR) para conferir ortografia, concordância, regência, crase, pontuação e estilo. As sugestões entram no painel e no DOCX do aluno (vermelho + balão). Requer internet; o restante do corretor continua 100% offline.</p></div>'+
       '<div class="cx-ltr"><button class="cx-btn solid" data-a="lt">'+(cur.lt?'↻ Verificar novamente':'Verificar gramática on-line')+'</button><label class="cx-ltp"><input type="checkbox" data-o="picky"'+(LS.get('ltpicky',true)?' checked':'')+'> incluir sugestões de estilo</label><details><summary>servidor</summary><input data-k="lturl" value="'+esc(LS.get('lturl',LT_URL))+'"><small>Use um servidor LanguageTool próprio da instituição, se houver.</small></details></div><div class="cx-lts">'+(cur.lt?'✔ '+cur.lt.length+' sugestão(ões) do LanguageTool incorporadas ao painel.':'')+'</div></div>';
@@ -3699,7 +3728,7 @@ CX.mount=function(root,o){
     wire();
   }
   function wire(){
-    var res=cur.res,meta=function(){return {fname:cur.fname,author:st.author,perfil:st.perfil,cursoNome:CURSOS[st.curso],inst:'UniCatólica do Rio Grande do Norte · Curso de '+CURSOS[st.curso]};};
+    var res=cur.res,meta=function(){return {fname:cur.fname,author:st.author,perfil:st.perfil,cursoNome:'',inst:'UniCatólica do Rio Grande do Norte'};};
     [].forEach.call($$('.cx-status'),function(s){s.addEventListener('click',function(e){e.stopPropagation();});s.addEventListener('change',function(){res.C[+s.getAttribute('data-i')].status=s.value;cur.hist.save();});});
     function filt(){var gs=[].filter.call($$('.cx-chips button.on'),function(){return 1;}).map(function(b){return b.getAttribute('data-g');}),ct=$('[data-f=cat]').value,sv=$('[data-f=st]').value,q=nrm($('[data-f=q]').value);
       [].forEach.call($$('.cx-it'),function(d){var x=res.C[+d.getAttribute('data-i')];var ok=gs.indexOf(x.grav)>=0&&(!ct||x.cat===ct)&&(!sv||x.status===sv)&&(!q||nrm(x.problema+' '+x.ancora+' '+x.secao+' '+x.acao).indexOf(q)>=0);d.style.display=ok?'':'none';});}
@@ -3714,7 +3743,7 @@ CX.mount=function(root,o){
     [].forEach.call($$('[data-ap]'),function(b){b.addEventListener('click',function(e){e.preventDefault();var i=+b.getAttribute('data-ap');apToggle(i,!res.C[i].aplicar);cur.hist.save();redraw(i);say(res.C[i].aplicar?'Correção aplicada — baixe o arquivo corrigido':'Correção desfeita');});});
     var apa=$('[data-a=apall]');if(apa)apa.addEventListener('click',function(){var n=0;res.C.forEach(function(x,i){if(canFix(x,cur.doc.kind)&&!x.aplicar){apToggle(i,true);n++;}});cur.hist.save();redraw();say(n+' correção(ões) aplicada(s)');});
     var fdl=$('[data-a=fixdl]');if(fdl)fdl.addEventListener('click',async function(){try{var base=cur.fname.replace(/\.(docx|pdf)$/i,''),r;
-        if(cur.doc.kind==='DOCX'){var tr=$('[data-o=track]');var track=tr?tr.checked:true;LS.set('track',track);r=await fixedDocx(cur.doc,res,{track:track,author:st.author||'Corretor Acadêmico'});download(base+'_CORRIGIDO.docx',r.blob);say(r.txt+' trecho(s) corrigido(s)'+(r.fmt?' · '+r.fmt+' ajuste(s) de formatação':'')+(r.fail.length?' · não localizado(s): '+r.fail.join(', '):''));}
+        if(cur.doc.kind==='DOCX'){r=await fixedDocx(cur.doc,res,{track:false,author:st.author||'Corretor Acadêmico'});download(base+'_CORRIGIDO.docx',r.blob);say(r.txt+' trecho(s) corrigido(s)'+(r.fmt?' · '+r.fmt+' ajuste(s) de formatação':'')+(r.fail.length?' · não localizado(s): '+r.fail.join(', '):''));}
         else{r=await textFixedDocx(res,cur.doc);download(base+'_CORRIGIDO.docx',r.blob);say(r.txt+' trecho(s) corrigido(s) · DOCX gerado a partir do texto do PDF');}
       }catch(e){console.error(e);say('Não foi possível gerar o arquivo corrigido');}});
     [].forEach.call($$('[data-copy]'),function(b){b.addEventListener('click',function(){copy(res.C[+b.getAttribute('data-copy')].fix);});});

@@ -77,7 +77,7 @@ await step('alternar tema claro/escuro', async () => {
 console.log('\n[2] Configuração');
 await step('opções de curso e tipo', async () => {
   const o = await page.evaluate(() => ({ c: [...document.querySelectorAll('select[data-k=curso] option')].map(x => x.textContent), t: [...document.querySelectorAll('select[data-k=tipo] option')].map(x => x.textContent) }));
-  if (o.c.length < 2 || o.t.length < 2) throw new Error(JSON.stringify(o)); return `${o.c.length} cursos, ${o.t.length} tipos`;
+  if (o.c.length !== 0 || o.t.length < 2) throw new Error(JSON.stringify(o)); return `sem seletor de curso (padrão único) · ${o.t.length} tipos`;
 });
 await step('nome nos balões', async () => { await page.$eval('input[data-k=author]', e => { e.value = ''; }); await page.type('input[data-k=author]', 'Prof. Teste'); });
 
@@ -248,7 +248,6 @@ async function dlFixed(track) {
 const py = (code, ...args) => execFileSync('python', ['-I', '-c', code, ...args], { encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } }).trim();
 
 await setTipo('auto');
-await page.evaluate(() => { const s = document.querySelector('select[data-k=curso]'); s.value = 'direito'; s.dispatchEvent(new Event('change', { bubbles: true })); });
 let pre0 = 0;
 await step('pré-projeto: regras novas disparam', async () => {
   await sendFile(path.join(FIX, 'preprojeto_erros.docx')); const t = (await pbs()).join(' | '); pre0 = (await pbs()).length;
@@ -271,11 +270,11 @@ await step('aplicar uma correção individual', async () => {
   const off = await page.$eval('[data-ap="' + i + '"]', b => !b.classList.contains('on')); if (!off) throw new Error('desfazer falhou'); return 'aplicar e desfazer ok';
 });
 let fixedTrack;
-await step('aplicar todas e baixar DOCX corrigido (alterações controladas)', async () => {
+await step('aplicar todas e baixar DOCX corrigido (direto, sem marcas)', async () => {
   const lab = await page.$eval('[data-a=apall]', b => b.textContent); await page.evaluate(() => document.querySelector('[data-a=apall]').click()); await sleep(400);
   fixedTrack = await dlFixed(true); const nx = docxXmlOk(fixedTrack);
   const r = JSON.parse(py(`import zipfile,sys,json,re\nx=zipfile.ZipFile(sys.argv[1]).read('word/document.xml').decode('utf8')\nprint(json.dumps({'ins':x.count('<w:ins '),'dele':x.count('<w:del '),'doi':'https://doi.org/10.18593' in x,'tnr':x.count('Times New Roman'),'cal':x.count('Calibri'),'l360':x.count('w:line="360"'),'mar':'w:top="1701"' in x and 'w:left="1701"' in x and 'w:right="1134"' in x,'jc':x.count('w:val="both"'),'ind':x.count('w:firstLine="709"'),'silva':'(Silva, 2020, p. 10)' in x or 'Silva' in x}))`, fixedTrack));
-  const prob = []; if (!r.ins || !r.dele) prob.push('sem w:ins/w:del'); if (!r.doi) prob.push('DOI não corrigido'); if (!r.mar) prob.push('margens'); if (!r.l360) prob.push('entrelinhas'); if (!r.tnr) prob.push('fonte'); if (!r.jc) prob.push('justificado'); if (!r.ind) prob.push('recuo');
+  const prob = []; if (r.ins || r.dele) prob.push('marcas de alteração no arquivo (deveria ser direto)'); if (!r.doi) prob.push('DOI não corrigido'); if (!r.mar) prob.push('margens'); if (!r.l360) prob.push('entrelinhas'); if (!r.tnr) prob.push('fonte'); if (!r.jc) prob.push('justificado'); if (!r.ind) prob.push('recuo');
   if (prob.length) throw new Error(prob.join(', ') + ' · ' + JSON.stringify(r));
   return `${lab.trim()} · ${nx} XML válidos · ${r.ins} inserções / ${r.dele} exclusões controladas · DOI ok · margens, fonte, 1,5, justificado e recuo ok`;
 });
