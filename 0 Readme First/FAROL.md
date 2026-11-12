@@ -1,6 +1,6 @@
 # 🔦 FAROL — Corretor Acadêmico
 
-**Atualizado em 12/11/2026, 16h35.**
+**Atualizado em 12/11/2026, 17h00.**
 
 🌐 **Publicado (público, D-009):** https://advpietromedeiros-sudo.github.io/corretor-tcc/ · repositório `advpietromedeiros-sudo/corretor-tcc`.
 
@@ -17,6 +17,8 @@
   - Conserto de 2 defeitos:
     1. O quadro de pendências era reanalisado quando o aluno reenviava o DOCX.
     2. Uma nova análise do mesmo arquivo marcava tudo como "não corrigido".
+
+- **17h00:** corrigidos os falsos positivos do teste real (pré-projeto de duas alunas: de 40 para 24 pendências, todas reais); curso removido (padrão único); correção automática direta, sem alterações controladas. Link enviado por e-mail ao titular. Teste: 49 ok, 0 falhas.
 
 ## Pendente
 
