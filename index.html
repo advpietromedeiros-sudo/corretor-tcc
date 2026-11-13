@@ -2497,6 +2497,7 @@ window.Declaracao=D;
    e no Manual de Normalização da FCRN. 100% offline.
    ===================================================================== */
 (function(){
+window.__cx={readPdf:readPdf,readDocx:readDocx,analyze:analyze,segment:segment,refEntries:refEntries};
 'use strict';
 var CX={};
 function nrm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
@@ -2636,11 +2637,13 @@ function markToc(lines){
     if(any)break;}
   lines[si].sumdoc=true;
 }
+function primHead(l){if(l.toc||l.sumdoc)return false;var t=l.t.trim();return t.length<=160&&/^\d{1,2}\s*[-–.]?\s+[A-ZÀ-Ý][A-ZÀ-Ý0-9 ,:;()º°ª\/\-–.]{6,}$/.test(t)&&!/\.{3,}|\s\d{1,3}$/.test(t)&&t.replace(/[^a-zà-ÿ]/g,'').length<=t.replace(/[^A-Za-zÀ-ÿ]/g,'').length*0.15;}
 function segment(lines){
   markToc(lines);
-  var c=[];lines.forEach(function(l,i){var k=headKey(l);if(k)c.push({k:k,i:i});});
+  var c=[];lines.forEach(function(l,i){var k=headKey(l);if(k)c.push({k:k,i:i});else if(primHead(l))c.push({k:'_sec',i:i});});
   var segs=c.map(function(h,j){var end=j+1<c.length?c[j+1].i:lines.length,body=lines.slice(h.i+1,end);return {k:h.k,i:h.i,end:end,lines:body,text:body.map(function(x){return x.t;}).join('\n'),head:lines[h.i].t};});
   var S={};
+  segs=segs.filter(function(sg){return sg.k!=='_sec';});
   segs.forEach(function(sg){if(sg.k==='sumario'){S.sumario=sg;return;}if(!S[sg.k]||sg.text.length>S[sg.k].text.length)S[sg.k]=sg;});
   Object.keys(S).forEach(function(k){if(k!=='sumario'&&k!=='objetivos'&&k!=='cronograma'&&!S[k].text.trim())delete S[k];});
   if(S.sumario){var acc=[];for(var x=S.sumario.i+1;x<lines.length;x++){var tt=lines[x].t;if(tt.length>90)break;if(headKey(lines[x])){var sg2=segs.filter(function(q){return q.i===x;})[0];if(sg2&&sg2.text.length>220)break;}acc.push(tt);if(acc.length>40)break;}
@@ -2673,18 +2676,28 @@ function citations(text){
       if(!grp){if(sm&&!/^(Disponível|Acesso|In|Apud|Ibid|Op|Cf|Art|Lei)$/i.test(sm[1]))grp={a:sm[1],raw:part.trim()};}else grp.raw+='; '+part.trim();
       if(y){if(grp)out.push({a:grp.a,y:y,raw:grp.raw,apud:/apud/i.test(inner)});grp=null;}});
     if(grp&&yrs.length)out.push({a:grp.a,y:yrs[yrs.length-1],raw:grp.raw,apud:/apud/i.test(inner)});}
-  var re2=/([A-ZÀ-Ý][a-zà-ÿ'\-]+)(?:\s+(?:et al\.|e\s+[A-ZÀ-Ý][a-zà-ÿ]+|&\s+[A-ZÀ-Ý][a-zà-ÿ]+))?\s+\(((19|20)\d{2})[a-z]?(?:,\s*p\.\s*\d+)?\)/g;
+  var re2=/([A-ZÀ-Ý][a-zà-ÿ'\-]+)(?:(?:,\s*[A-ZÀ-Ý][a-zà-ÿ'\-]+)*\s+(?:e|&)\s+[A-ZÀ-Ý][a-zà-ÿ'\-]+|\s+et al\.)?\s+\(((19|20)\d{2})[a-z]?(?:[,;][^()]{0,60})?\)/g;
   while((m=re2.exec(text))){if(['Segundo','Conforme','Para','Em','De','No','Na','Lei','Art','Desde','Até'].indexOf(m[1])<0)out.push({a:m[1],y:m[2],raw:m[0]});}
   var re3=/\b([A-ZÀ-Ý][A-ZÀ-Ý'\-]{2,})(?:\s+et al\.?)?\s+\(((19|20)\d{2})/g;
   while((m=re3.exec(text))){out.push({a:m[1],y:m[2],raw:m[0]+')'});}
   return out;
 }
+/* autores de uma referência: todos os sobrenomes (inclusive coautores e compostos) e todos os anos */
+var PARTIC=/^(da|de|do|das|dos|e|di|del|van|von|la|le)$/;
+function refAuthors(e,e2){
+  var head=e.split(/\.\s+[A-ZÀ-Ý][a-zà-ÿ]/)[0].slice(0,260),toks=[],k=nrm(e.split(/[,.]/)[0]).trim();
+  var re=/(?:^|;\s*)([A-ZÀ-Ý][A-ZÀ-Ý'\- ]*[A-ZÀ-Ý])\s*,/g,m;
+  while((m=re.exec(head))){nrm(m[1]).split(/\s+/).forEach(function(w){if(w.length>=3&&!PARTIC.test(w)&&toks.indexOf(w)<0)toks.push(w);});}
+  nrm(k).replace(/\(.*?\)/g,'').split(/\s+/).forEach(function(w){if(w.length>=3&&!PARTIC.test(w)&&toks.indexOf(w)<0)toks.push(w);});
+  var ys=((e2||e).match(/\b(19|20)\d{2}\b/g)||[]).filter(function(y,i,a){return a.indexOf(y)===i;});
+  return {k:k,toks:toks,ys:ys,y:ys[ys.length-1],e:e};}
+function refHas(r,a){if(!r||!a)return false;if(r.k&&(r.k.indexOf(a)===0||a.indexOf(r.k)===0))return true;return r.toks.indexOf(a)>=0;}
 function refEntries(sec,isDocx){
   if(!sec)return [];
   var L=sec.lines.map(function(x){return x.t;}).filter(function(t){return t.trim();});
   if(isDocx)return L.filter(function(t){return t.length>15;});
   var out=[],cur='';
-  L.forEach(function(t){var start=/^([A-ZÀ-Ý][A-ZÀ-Ý'\- ]{1,}[,.]\s)|^\[?\d{1,3}[.\])]\s/.test(t);if(start&&cur){out.push(cur);cur=t;}else cur=cur?cur+' '+t:t;});
+  L.forEach(function(t){var start=/^([A-ZÀ-Ý][A-ZÀ-Ý'\- ]{1,}[,.]\s)|^\[?\d{1,3}[.\])]\s|^[A-ZÀ-Ý][A-ZÀ-Ý'\- ]{2,}\s*\([A-ZÀ-Ý.]{2,}\)[.,]\s/.test(t);if(start&&cur&&!/[;&]\s*$/.test(cur)){out.push(cur);cur=t;}else cur=cur?cur+' '+t:t;});
   if(cur)out.push(cur);
   return out.filter(function(t){return t.length>15;});
 }
@@ -2726,7 +2739,7 @@ var PTERR=[
  [/\bvêem\b|\blêem\b|\bcrêem\b|\bdêem\b/gi,'Acordo Ortográfico: sem acento (“veem”, “leem”, “creem”, “deem”).',function(m){return m.replace('ê','e');}],
  [/\b(idéia|assembléia|européia|platéia|heróico|paranóia|jóia|bóia|enjôo|vôo|feiúra|lingüística|freqüência|conseqüência|tranqüil\w*|seqüência|eloqüente|cinqüenta|agüentar|bilíngüe)\b/gi,'Acordo Ortográfico: grafia antiga (acento/trema).',function(m){return m.normalize('NFD').replace(/[̈]/g,'').normalize('NFC').replace(/éia/,'eia').replace(/óia/,'oia').replace(/ói/,'oi').replace(/ôo/,'oo').replace(/iú/,'iu');}],
  [/!/g,'Ponto de exclamação é inadequado ao texto científico.','.'],
- [/\.{3}|…/g,'Reticências não são adequadas ao texto científico (exceto supressão em citação, que usa […]).','.'],
+ [/(?<![\[(.])(?:\.{3}|…)(?![\]).])/g,'Reticências não são adequadas ao texto científico (exceto supressão em citação, que usa […]).','.'],
  [/[A-Za-zÀ-ÿ0-9)] {2,}(?=\S)/g,'Espaço duplo entre palavras.',function(m){return m.replace(/ {2,}/,' ');}],
  [/[A-Za-zÀ-ÿ0-9)] +[,;:.](?!\d)/g,'Espaço antes de sinal de pontuação.',function(m){return m.replace(/ +/,'');}],
  [/[a-zà-ÿ]{2,}[,;](?=[A-Za-zÀ-ÿ])/g,'Falta espaço depois da vírgula/ponto e vírgula.',function(m){return m+' ';}]
@@ -2852,18 +2865,18 @@ function fixRef(e){
   s=s.replace(/(https?:\/\/\S+?)(\.?)\s+Acesso/i,function(m,u){return u.replace(/\.$/,'')+'. Acesso';});
   s=s.replace(/\b[Aa]cess(?:o|ado) em:?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})/,function(m,d,mo,y){if(y.length===2)y='20'+y;return 'Acesso em: '+(+d)+' '+(MESES[+mo-1]||mo)+' '+y;});
   s=s.replace(/\b[Aa]cess(?:o|ado) em:?\s*(\d{1,2})\s+de\s+([a-zç]+)\s+de\s+(\d{4})/,function(m,d,mo,y){var k=MESFULL[mo.toLowerCase()];return k==null?m:'Acesso em: '+(+d)+' '+MESES[k]+' '+y;});
-  if(/https?:\/\//.test(s)&&!/Dispon[ií]vel em/i.test(s))s=s.replace(/(https?:\/\/\S+)/,'Disponível em: $1');
+  if(/https?:\/\//.test(s)&&!/Dispon[ií]vel em/i.test(s)&&!/\bDOI:?\s*https?:/i.test(s))s=s.replace(/(https?:\/\/\S+)/,'Disponível em: $1');
   s=s.replace(/\s{2,}/g,' ').replace(/\.\./g,'.');
   return s;
 }
 function refType(e){
   if(/^(BRASIL|[A-ZÀ-Ý ]{4,})\.\s*\[?(Constitui|Lei|Decreto|Medida Provis|Emenda|Portaria|Resolu|Instru)/i.test(e))return 'ref_legislacao';
   if(/(Supremo Tribunal|Superior Tribunal|Tribunal de Justi|Tribunal Regional|Habeas|Recurso Especial|Recurso Extraordin|Agravo|Ac[oó]rd[aã]o|Relator)/i.test(e))return 'ref_jurisprudencia';
-  if(/(Monografia|Disserta[cç][aã]o|Tese|Trabalho de Conclus)\s*\(/i.test(e))return 'ref_tcc';
+  if(/(Monografia|Disserta[cç][aã]o|Tese|Trabalho de Conclus[aã]o de Curso|Artigo Cient[ií]fico|TCC)[^.]{0,30}\(|\b(Gradua[cç][aã]o|Bacharelado|Mestrado|Doutorado)\s+em\b/i.test(e))return 'ref_tcc';
   if(/\bAnais\b|\bIn:\s*(CONGRESSO|SEMIN|ENCONTRO|SIMP|JORNADA)/i.test(e))return 'ref_anais';
   if(/\bIn:\s/.test(e))return 'ref_capitulo';
   if(/^[A-ZÀ-Ý][A-ZÀ-Ý ]+(\([A-Z]{2}\))?\.\s*(\[?Constitui|Lei|Decreto|Medida Provis|Emenda|Portaria|Resolu|Instru)/.test(e))return 'ref_legislacao';
-  var e2=e.replace(/\((Cole[cç][aã]o|S[eé]rie|Biblioteca)[^)]*\)/gi,'');
+  var e2=e.replace(/\((Cole[cç][aã]o|S[eé]rie|Biblioteca)[^)]*\)/gi,'').replace(/\b(Decreto-Lei|Lei Complementar|Lei|Decreto|Relat[óo]rio|Resolu[çc][ãa]o|Portaria|Emenda|Medida Provis[óo]ria|Habeas Corpus|Recurso|Caso|Ac[óo]rd[ãa]o|Processo)\s+(n[º°o.]?s?\s*)?[\d.\/]+/gi,'');
   if(/\bv\.\s*\d|\bn\.\s*\d|[Vv]ol\.|n[º°]\s*\d+,\s*p/.test(e2))return 'ref_artigo';
   if(/https?:\/\//.test(e))return 'ref_online';
   return 'ref_livro';
@@ -3069,24 +3082,24 @@ function analyze(doc,opt){
     else if(van)P('ref.vancouver','referencias','ABNT','BAIXA','VER','Lista numerada (estilo Vancouver) detectada.','O TCC na FCRN segue ABNT (autor-data); Vancouver pode ser exigido apenas por revistas.','Confirme com o orientador o padrão exigido e mantenha-o uniforme.','Padrão único e aceito pela instituição.',N.man,false,'MEDIA',rLi);
     ents.filter(function(e){return !hasYear(e)&&!/s\.d\./i.test(e);}).slice(0,3).forEach(function(e,ix){P('ref.ano.'+ix,'referencias','REFERÊNCIAS','MEDIA','OBJ','Referência sem ano identificável.','A data é elemento essencial da referência.','Inclua o ano (ou [s.d.] se realmente inexistente).','Referência com data.',N.a6023,false,'MEDIA',findLine(e.slice(0,40),S.referencias.i),short(e));});
     ents.filter(function(e){var y=(e.match(/\b(19|20)\d{2}\b/g)||[]).map(Number);return y.some(function(v){return v>now2+1;});}).slice(0,2).forEach(function(e,ix){P('ref.futuro.'+ix,'referencias','REFERÊNCIAS','ALTA','OBJ','Referência com data cronologicamente impossível (ano futuro).','Indica erro nos dados bibliográficos ou referência não verificável.','Confira os dados na fonte original e corrija.','Data compatível e verificada.',N.pm,true,'ALTA',findLine(e.slice(0,40),S.referencias.i),short(e));});
-    ents.filter(function(e){return /(https?:\/\/|www\.)/i.test(e)&&!/acesso em/i.test(e)&&!/doi|doi\.org\//i.test(e);}).slice(0,3).forEach(function(e,ix){P('ref.acesso.'+ix,'referencias','ABNT','BAIXA','OBJ','Documento on-line sem “Acesso em”.','Para documentos on-line sem DOI, a NBR 6023:2025 mantém “Disponível em:” e “Acesso em:” (a data de acesso é dispensada quando há DOI).','Acrescente “Disponível em: [URL]. Acesso em: dia mês ano.”','Referência eletrônica completa.',N.a6023,false,'ALTA',findLine(e.slice(0,40),S.referencias.i),short(e));});
+    ents.filter(function(e){return /(https?:\/\/|www\.)/i.test(e)&&!/acesso em/i.test(e)&&!/\bdoi\b|doi\.org\//i.test(e);}).slice(0,3).forEach(function(e,ix){P('ref.acesso.'+ix,'referencias','ABNT','BAIXA','OBJ','Documento on-line sem “Acesso em”.','Para documentos on-line sem DOI, a NBR 6023:2025 mantém “Disponível em:” e “Acesso em:” (a data de acesso é dispensada quando há DOI).','Acrescente “Disponível em: [URL]. Acesso em: dia mês ano.”','Referência eletrônica completa.',N.a6023,false,'ALTA',findLine(e.slice(0,40),S.referencias.i),short(e));});
     /* NBR 6023:2025 — DOI registrado como endereço completo */
     ents.forEach(function(e,ix){var md=e.match(/\b(?:DOI|doi)\s*:?\s*(10\.\d{4,9}\/[^\s,;]+?)(?=[.,;]?\s|[.,;]?$)/);if(!md||/doi\.org\//i.test(md[0])||ix>5)return;var alvo=md[0],fx='DOI: https://doi.org/'+md[1];
       var o=P('ref.doi.'+ix,'referencias','ABNT','BAIXA','OBJ','DOI fora do formato da NBR 6023:2025.','Na NBR 6023:2025, o DOI é registrado como endereço completo (https://doi.org/…); com DOI, a data de acesso é dispensável.','Escreva o DOI como link completo.','DOI no formato https://doi.org/10.xxxx/xxxx.',N.a6023,false,'ALTA',findLine(e.slice(0,40),S.referencias.i),short(e));if(o){o.alvo=alvo;o.fix=fx;o.modelo='ref_online';}});
     ents.filter(function(e){return /(google\.com\/search|scholar\.google|jusbrasil\.com\.br\/busca|consulta processual|consultaprocessual|bing\.com\/search|\/search\?q=)/i.test(e);}).slice(0,2).forEach(function(e,ix){P('ref.urlgen.'+ix,'referencias','FONTES','MEDIA','OBJ','URL genérica de busca usada como fonte.','Página de busca não identifica o documento citado.','Substitua pelo link do documento/acórdão/artigo específico (ou DOI).','URL aponta para o documento consultado.',N.pm,true,'ALTA',findLine(e.slice(0,40),S.referencias.i),short(e));});
     var yrs2=ents.map(function(e){var m=e.replace(/(Dispon[ií]vel em|Acesso em).*$/i,'').match(/\b(19|20)\d{2}\b/g);return m?+m[m.length-1]:null;}).filter(Boolean),old=yrs2.filter(function(y){return y<now2-10;}).length;
     if(yrs2.length>=3&&old/yrs2.length>.5)P('ref.antigas','referencias','ATUALIZAÇÃO','BAIXA','SUG',Math.round(old/yrs2.length*100)+'% das referências têm mais de 10 anos.','Fontes antigas podem não refletir o estado atual do conhecimento'+(dir?' ou da legislação/jurisprudência':'')+'.','Equilibre clássicos com produção recente relevante.','Presença de fontes atualizadas no núcleo do debate.',N.e5,false,'MEDIA',rLi);
-    if(!van){var bodyEnd=S.referencias.i,body=lines.slice(0,bodyEnd).map(function(l){return l.t;}).join('\n'),cit2=citations(body),rk=ents.map(function(e){var e2=e.replace(/(Dispon[ií]vel em|Acesso em).*$/i,'');return {k:nrm(e.split(/[,.]/)[0]).trim(),y:(e2.match(/\b(19|20)\d{2}\b/g)||[]).pop(),e:e};});
+    if(!van){var bodyEnd=S.referencias.i,body=lines.slice(0,bodyEnd).map(function(l){return l.t;}).join('\n'),cit2=citations(body),rk=ents.map(function(e){var e2=e.replace(/(Dispon[ií]vel em|Acesso em).*$/i,'');return refAuthors(e,e2);});
       var miss={},ymis={};
-      cit2.forEach(function(c){var a=nrm(c.a);if(a.length<3||/^(et|al|apud|p|in)$/.test(a))return;var hit=rk.filter(function(r){return r.k&&(r.k.indexOf(a)===0||a.indexOf(r.k)===0);});
-        if(!hit.length)miss[c.a.toUpperCase()]=c;else if(c.y&&hit.every(function(r){return r.y&&r.y!==c.y;}))ymis[c.a.toUpperCase()+' '+c.y]={c:c,r:hit[0]};});
+      cit2.forEach(function(c){var a=nrm(c.a);if(a.length<3||/^(et|al|apud|p|in)$/.test(a))return;var hit=rk.filter(function(r){return refHas(r,a);});
+        if(!hit.length)miss[c.a.toUpperCase()]=c;else if(c.y&&!hit.some(function(r){return r.ys.indexOf(c.y)>=0;})&&hit.every(function(r){return r.ys.length;}))ymis[c.a.toUpperCase()+' '+c.y]={c:c,r:hit[0]};});
       Object.keys(miss).forEach(function(k){var c=miss[k];P('ref.ausente.'+nrm(k),'referencias','REFERÊNCIAS','ALTA','INC','“'+k+'” é citado no texto, mas não consta nas referências.','Toda obra citada deve constar na lista de referências (auditoria 1:1).','Inclua a referência completa da obra citada ou corrija a citação.','Citação e referência correspondem.',N.a10520,false,'ALTA',findLine(c.raw.slice(0,30),0,bodyEnd),short(c.raw,80));});
-      Object.keys(ymis).forEach(function(k){var o=ymis[k];P('ref.anodiv.'+nrm(k),'referencias','CITAÇÃO','MEDIA','INC','Ano divergente: citado como '+o.c.y+' no texto, mas '+o.r.y+' nas referências ('+o.c.a.toUpperCase()+').','Autoria e ano devem ser consistentes entre citação e referência.','Confira na obra original qual é o ano correto e padronize.','Mesmo ano na citação e na referência.',N.a10520,false,'MEDIA',findLine(o.c.raw.slice(0,30),0,bodyEnd),short(o.c.raw,80));});
+      Object.keys(ymis).forEach(function(k){var o=ymis[k];P('ref.anodiv.'+nrm(k),'referencias','CITAÇÃO','MEDIA','INC','Ano divergente: citado como '+o.c.y+' no texto, mas '+o.r.ys.join('/')+' nas referências ('+o.c.a.toUpperCase()+').','Autoria e ano devem ser consistentes entre citação e referência.','Confira na obra original qual é o ano correto e padronize.','Mesmo ano na citação e na referência.',N.a10520,false,'MEDIA',findLine(o.c.raw.slice(0,30),0,bodyEnd),short(o.c.raw,80));});
       var cs={};cit2.forEach(function(c){cs[nrm(c.a)]=1;});
       var bodyN=nrm(lines.slice(seg.first,S.referencias.i).map(function(L){return L.t;}).join(' '));
-      var naoCit=rk.filter(function(r){return r.k&&!Object.keys(cs).some(function(a){return r.k.indexOf(a)===0||a.indexOf(r.k)===0;});});
+      var naoCit=rk.filter(function(r){return r.k&&!Object.keys(cs).some(function(a){return refHas(r,a);});});
       naoCit=naoCit.filter(function(r){var lei=r.e.match(/\b(?:Lei|Decreto|Resolu[cç][aã]o|Portaria|Emenda)[^,.]{0,25}?n[º°o.]?\s*([\d.]+)/i);return !(lei&&bodyN.indexOf(nrm(lei[1]))>=0);});
-      var semAno=naoCit.filter(function(r){var sob=nrm(r.k).split(/\s+/).pop();return sob.length>=3&&new RegExp('\\b'+sob+'\\b').test(bodyN);});
+      var semAno=naoCit.filter(function(r){var ent=/^[A-ZÀ-Ý][A-ZÀ-Ý ]+\s[A-ZÀ-Ý]/.test(r.e)&&!/^[^,]{1,40},/.test(r.e.split('.')[0]);if(ent){var nm=nrm(r.e.split('.')[0]).replace(/\(.*?\)/g,'').trim();return nm.length>8&&bodyN.indexOf(nm)>=0&&false;}return r.toks.some(function(sob){return sob.length>=4&&!/^(filho|neto|junior|sobrinho|brasil)$/.test(sob)&&new RegExp('\\b'+sob+'\\b').test(bodyN);});});
       semAno.slice(0,4).forEach(function(r){P('ref.semano.'+r.k.slice(0,20),'referencias','CITAÇÃO','BAIXA','OBJ','Autor mencionado no texto sem a chamada autor-data: '+r.k.toUpperCase()+'.','Pela NBR 10520:2023, toda menção a autor traz o ano (e a página, se direta): Di Pietro (2026) ou (Di Pietro, 2026).','Acrescente o ano da obra à menção ao autor no texto.','Autor citado com ano.',N.a10520,false,'ALTA',findLine(r.k.split(/\s+/).pop(),seg.first,S.referencias.i),short(r.e)).modelo='cit_autor_data';});
       naoCit=naoCit.filter(function(r){return semAno.indexOf(r)<0;});
       if(cit2.length){naoCit.slice(0,6).forEach(function(r){P('ref.naocit.'+r.k.slice(0,20),'referencias','REFERÊNCIAS','BAIXA','INC','Referência listada, mas não localizada no texto: '+r.k.toUpperCase()+'.','A lista deve conter apenas obras efetivamente usadas (salvo bibliografia adicional permitida).','Cite a obra no texto ou retire-a da lista.','Toda referência é citada.',N.e5,false,'MEDIA',findLine(r.e.slice(0,40),S.referencias.i),short(r.e));});}
@@ -3128,9 +3141,11 @@ function analyze(doc,opt){
       if(fx&&fx!==alvo){o.alvo=alvo;o.fix=fx;}o.modelo='pt_academico';}});});
   if(ptOver)P('pt.recorrente',null,'PORTUGUÊS','BAIXA','OBJ','Há mais '+ptOver+' ocorrência(s) de desvios de linguagem semelhantes aos já apontados.','Pendência global: a revisão linguística precisa abranger todo o texto.','Faça uma revisão completa do texto (ou use a revisão gramatical on-line do corretor).','Texto revisado integralmente.','Gramática normativa',false,'MEDIA',null,'(diversos trechos)').modelo='pt_academico';
   /* siglas sem definição */
+  var siglaList=(function(){var out=[],on=false;var lim=S.introducao?S.introducao.i:Math.min(lines.length,400);for(var i=0;i<lim&&i<lines.length;i++){var t=lines[i].t.trim();if(lines[i].toc)continue;if(/^lista\s+(de\s+)?(abreviaturas|siglas)/i.test(t)){on=true;continue;}if(on){if(/^(sum[aá]rio|lista\s|resumo|abstract|\d{1,2}\s+[A-ZÀ-Ý]{4,})/i.test(t)){on=false;continue;}var m=t.match(/^([A-ZÀ-Ý][A-ZÀ-Ýa-z0-9\/º°.]{1,9})\s+\S/);if(m)out.push(m[1].replace(/[^A-Z]/g,''));}}return out;})();
   (function(){var bodyTxt=lines.filter(function(L,i){return i>=seg.first&&i<rS0&&!headKey(L)&&L.t!==L.t.toUpperCase();}).map(function(L){return L.t;}).join('\n'),seen={},n=0;
     var re=/(?:^|[^A-Za-zÀ-ÿ])([A-Z]{2,6})(?![A-Za-zÀ-ÿ])/g,m;var IGN=/^(ABNT|NBR|II|III|IV|VI|VII|VIII|IX|XI|XII|XX|XXI|RN|SP|RJ|MG|DF|BA|PE|CE|PB|PR|RS|SC|GO|ES|AM|PA|MA|PI|AL|SE|TO|RO|AC|AP|RR|MT|MS|OK|TCC|ISBN|ISSN|DOI|URL|CPF|CNPJ|EUA|ONU|OMS|IA|IBGE|SUS|PDF|DOCX|HTML|NOVA|PICO|PECO|ODS)$/;
     while((m=re.exec(bodyTxt))&&n<4){var sg=m[1];if(seen[sg]||IGN.test(sg)||/^[IVXLCDM]+$/.test(sg))continue;
+      if(siglaList.indexOf(sg)>=0)continue;
       var ctxA=bodyTxt.slice(Math.max(0,m.index-25),m.index+m[0].length+25);if(/[A-ZÀ-Ý]{3,}[\s:,–-]+[A-ZÀ-Ý]{2,}[\s:,–-]+[A-ZÀ-Ý]{2,}/.test(ctxA)||new RegExp(sg+'\\s*:').test(ctxA))continue;
       seen[sg]=1;
       if(new RegExp('\\(\\s*'+sg+'\\s*[)\\-–,]').test(bodyTxt)||new RegExp(sg+'\\s*[–\\-]\\s*[A-ZÀ-Ý][a-zà-ÿ]').test(bodyTxt))continue;
@@ -3144,7 +3159,7 @@ function analyze(doc,opt){
   var sents=all.replace(/\n/g,' ').split(/(?<=[.!?])\s+/).filter(function(s){return wc(s)>60;});
   if(sents.length)P('pt.periodo',null,'PORTUGUÊS','BAIXA','SUG',sents.length+' período(s) com mais de 60 palavras.','Períodos muito longos prejudicam clareza e coesão.','Divida os períodos longos e use conectivos adequados.','Períodos de extensão moderada.',N.e4,false,'MEDIA',findLine(sents[0].slice(0,40)),short(sents[0]));
   var rep=all.match(/\b(\w{4,})\s+\1\b/i);if(rep)P('pt.rep',null,'PORTUGUÊS','BAIXA','OBJ','Palavra repetida em sequência (“'+rep[0]+'”).','Provável erro de digitação.','Revise o trecho.','Sem repetições acidentais.','Revisão textual',false,'ALTA',findLine(rep[0]),short(rep[0]));
-  if(/(inteligencia artificial|chatgpt|claude|gemini|copilot)/.test(nrm(all))&&!/declara\w* de uso/.test(nrm(all)))P('ia.declar',null,'INTEGRIDADE ACADÊMICA','BAIXA','SUG','O texto menciona ferramentas de IA, mas não há declaração de uso.','Uso relevante de IA deve ser declarado.','Se usou IA na elaboração, inclua a Declaração de Uso de IA (apêndice).','Declaração incluída, quando aplicável.',N.ia,false,'MEDIA',0,'(documento)');
+  if(/\b(chatgpt|gpt-?[345]|gemini|copilot|perplexity|deepseek|notebooklm)\b|(utiliz|usad|uso d|auxilio d|apoio d)\w*\s+(de\s+|da\s+|do\s+)?(ferramentas?\s+de\s+)?(ia|inteligencia artificial)\s+(generativa|para|na|no)/.test(nrm(all))&&!/declara\w* de uso/.test(nrm(all)))P('ia.declar',null,'INTEGRIDADE ACADÊMICA','BAIXA','SUG','O texto menciona ferramentas de IA, mas não há declaração de uso.','Uso relevante de IA deve ser declarado.','Se usou IA na elaboração, inclua a Declaração de Uso de IA (apêndice).','Declaração incluída, quando aplicável.',N.ia,false,'MEDIA',0,'(documento)');
   /* 15 FORMATAÇÃO (DOCX) */
   if(doc.fmt){var m=doc.fmt,tw=function(v){return (v/567).toFixed(1).replace('.',',')+' cm';};
     if(m.top){var okM=Math.abs(m.top-1701)<80&&Math.abs(m.left-1701)<80&&Math.abs(m.right-1134)<80&&Math.abs(m.bottom-1134)<80;
@@ -3183,6 +3198,8 @@ function analyze(doc,opt){
     var qre=/[“"]([^”"]{12,})[”"]/g;
     while((m=qre.exec(t))){var q=m[1],after=t.slice(m.index+m[0].length,m.index+m[0].length+70),before=t.slice(Math.max(0,m.index-90),m.index);
       if(wc(q)<4)continue;
+      var CALL=/\([^()]{0,80}\b(19|20)\d{2}[a-z]?\b[^()]{0,40}\)|[A-ZÀ-Ý][A-Za-zÀ-ÿ'\-]+\s*(?:et al\.?\s*)?\(\s*(19|20)\d{2}/;
+      if(!CALL.test(after)&&!CALL.test(before))continue;
       var LOC=/(p\.|p[áa]g\.?|pg\.?)\s*\d|\bart\.\s*\d|§\s*\d|\binc(iso)?\.?\s*[ivxl\d]|\bn\.\s?p\.|\bon-?line\b|\bnão paginad/i,hasPage=LOC.test(after)||LOC.test(before);
       if(wc(q)>40)FX(P('cit.longa.inline.'+i+'.'+m.index,null,'CITAÇÃO','ALTA','OBJ','Citação direta com mais de três linhas escrita entre aspas no corpo do parágrafo.','Pelo Manual FCRN, citação com mais de três linhas vai em parágrafo próprio, sem aspas, recuo de 4 cm, fonte 10 e espaçamento simples.','Destaque a citação em parágrafo separado com a formatação indicada (sem aspas), mantendo autor, ano e página.','Citação longa em bloco recuado, fonte 10, simples, sem aspas.',N.man,false,'ALTA',i,short(m[0],120)),m[0],null,'cit_direta_longa');
       else if(!hasPage&&wc(q)>=6)FX(P('cit.pag.'+i+'.'+m.index,null,'CITAÇÃO','MEDIA','OBJ','Citação direta sem indicação de página.','Toda transcrição literal exige a página (ou localização, em documento não paginado).','Acrescente a página na chamada: (Sobrenome, ano, p. X) ou Sobrenome (ano, p. X).','A citação direta indica a página.',N.a10520,false,'MEDIA',i,short(m[0],120)),m[0],null,'cit_direta_curta');}
@@ -3214,16 +3231,17 @@ function analyze(doc,opt){
   if(S.resumo){var rl=S.resumo.lines,kw=null,kwi=-1;rl.forEach(function(x,ix){if(/^palavras?-chave/i.test(x.t)){kw=x.t;kwi=ix;}});
     var body=rl.slice(0,kwi<0?rl.length:kwi);if(isDocx&&body.length>1)P('res.paragrafo','resumo','ESTRUTURA','BAIXA','OBJ','Resumo dividido em '+body.length+' parágrafos.','O resumo é redigido em parágrafo único.','Una o texto em um único parágrafo.','Resumo em parágrafo único.',N.man,false,'ALTA',S.resumo.i).modelo='est_resumo';
     if(kw){var list=kw.replace(/^palavras?-chave\s*:?\s*/i,'').replace(/\.\s*$/,''),items=list.split(/[;,]/).map(function(x){return x.trim();}).filter(Boolean),pr2=[];
-      if(/,/.test(list)&&!/;/.test(list))pr2.push('separadas por vírgula (use ponto e vírgula)');if(items.length<3||items.length>5)pr2.push(items.length+' palavras-chave (use 3 a 5)');if(items.some(function(x){return /^[A-ZÀ-Ý][a-zà-ÿ]/.test(x)&&!/^(Brasil|Mossor|Rio|SUS|LGPD)/.test(x);}))pr2.push('iniciais maiúsculas (use minúsculas, exceto nomes próprios)');
-      if(pr2.length){var fk='Palavras-chave: '+items.map(function(x){return /^(Brasil|Mossor|Rio|SUS|LGPD)/.test(x)?x:x.charAt(0).toLowerCase()+x.slice(1);}).join('; ')+'.';FX(P('res.kw','resumo','ABNT','BAIXA','OBJ','Palavras-chave fora do padrão: '+pr2.join('; ')+'.','Manual FCRN: 3 a 5 termos, separados por ponto e vírgula, em minúsculas (exceto nomes próprios e científicos).','Ajuste conforme a forma correta.','Palavras-chave no padrão.',N.man,false,'ALTA',S.resumo.i+1+kwi,kw),kw,fk,'est_resumo');}}}
+      if(/,/.test(list)&&!/;/.test(list))pr2.push('separadas por vírgula (use ponto e vírgula)');if(items.length<3||items.length>5)pr2.push(items.length+' palavras-chave (use 3 a 5)');var PROP=function(x){return /\d/.test(x)||/^(Brasil|Mossor|Rio|SUS|LGPD|Lei|Tribunal|Supremo|Superior|C[oó]digo|Constitui|Estado|Minist|Conselho|Maria da Penha|Uni)/.test(x)||x.split(/\s+/).filter(function(w){return /^[A-ZÀ-Ý]/.test(w);}).length>=2;};
+      if(items.some(function(x){return /^[A-ZÀ-Ý][a-zà-ÿ]/.test(x)&&!PROP(x);}))pr2.push('iniciais maiúsculas em termos comuns (use minúsculas, exceto nomes próprios)');
+      if(pr2.length){var fk='Palavras-chave: '+items.map(function(x){return PROP(x)?x:x.charAt(0).toLowerCase()+x.slice(1);}).join('; ')+'.';FX(P('res.kw','resumo','ABNT','BAIXA','OBJ','Palavras-chave fora do padrão: '+pr2.join('; ')+'.','Manual FCRN: 3 a 5 termos, separados por ponto e vírgula, em minúsculas (exceto nomes próprios e científicos).','Ajuste conforme a forma correta.','Palavras-chave no padrão.',N.man,false,'ALTA',S.resumo.i+1+kwi,kw),kw,fk,'est_resumo');}}}
   /* referências — rigor por entrada */
   if(S.referencias){var entsR=refEntries(S.referencias,isDocx),seen={},rN=0;
     entsR.forEach(function(e,ix){var li=findLine(e.slice(0,40),S.referencias.i),fr=fixRef(e),tp=refType(e),pr3=[];
-      if(fr!==e){if(/\d\s*[ªº°]|\d+\s+ed\b|\d\.ed/i.test(e))pr3.push('edição fora do padrão “2. ed.”');if(/\bpp\.|pág\./i.test(e))pr3.push('páginas devem ser indicadas com “p.”');if(/\b[Vv]ol\./.test(e))pr3.push('volume deve ser “v.”');if(/[Nn][º°o]\.?\s*\d/.test(e)&&/n\. \d/.test(fr)&&!/n\. \d/.test(e)&&!/\b(lei|decreto|resolu|portaria|emenda|medida provis|constitui|instru[cç][aã]o normativa|s[uú]mula|ac[oó]rd[aã]o|processo|recurso|habeas|licita[cç][aã]o|preg[aã]o|edital)\b/i.test(e))pr3.push('número de periódico deve ser “n.”');if(/acess(o|ado) em:?\s*\d{1,2}\/|acess(o|ado) em:?\s*\d{1,2} de/i.test(e))pr3.push('data de acesso deve ter mês abreviado (ex.: 15 jun. 2019)');if(/<\s*https?:/i.test(e))pr3.push('endereço eletrônico não leva < >');if(/^[A-ZÀ-Ý][a-zà-ÿ]+,\s/.test(e))pr3.push('sobrenome do autor deve estar em MAIÚSCULAS');if(/https?:\/\//.test(e)&&!/Dispon[ií]vel em/i.test(e))pr3.push('falta “Disponível em:”');
+      if(fr!==e){if(/\d\s*[ªº°]|\d+\s+ed\b|\d\.ed/i.test(e))pr3.push('edição fora do padrão “2. ed.”');if(/\bpp\.|pág\./i.test(e))pr3.push('páginas devem ser indicadas com “p.”');if(/\b[Vv]ol\./.test(e))pr3.push('volume deve ser “v.”');if(/[Nn][º°o]\.?\s*\d/.test(e)&&/n\. \d/.test(fr)&&!/n\. \d/.test(e)&&!/\b(lei|decreto|resolu|portaria|emenda|medida provis|constitui|instru[cç][aã]o normativa|s[uú]mula|ac[oó]rd[aã]o|processo|recurso|habeas|licita[cç][aã]o|preg[aã]o|edital)\b/i.test(e))pr3.push('número de periódico deve ser “n.”');if(/acess(o|ado) em:?\s*\d{1,2}\/|acess(o|ado) em:?\s*\d{1,2} de/i.test(e))pr3.push('data de acesso deve ter mês abreviado (ex.: 15 jun. 2019)');if(/<\s*https?:/i.test(e))pr3.push('endereço eletrônico não leva < >');if(/^[A-ZÀ-Ý][a-zà-ÿ]+,\s/.test(e))pr3.push('sobrenome do autor deve estar em MAIÚSCULAS');if(/https?:\/\//.test(e)&&!/Dispon[ií]vel em/i.test(e)&&!/\bDOI:?\s*https?:/i.test(e))pr3.push('falta “Disponível em:”');
         if(rN++<12)FX(P('ref.form.'+ix,'referencias','ABNT','BAIXA','OBJ','Referência fora do padrão do Manual FCRN: '+(pr3.join('; ')||'pontuação/elementos')+'.','As referências devem seguir rigorosamente a ordem e a pontuação dos modelos do manual.','Substitua pela forma corrigida e confira os demais elementos na obra.','Referência no padrão do modelo correspondente.',N.a6023,false,'MEDIA',li,short(e,140)),e,fr,tp);}
       if(/_{3,}/.test(e))FX(P('ref.traco.'+ix,'referencias','ABNT','BAIXA','OBJ','Uso de traço no lugar do nome do autor repetido.','O Manual FCRN determina que o nome do autor seja indicado em todas as obras.','Repita o nome do autor.','Autor indicado em todas as referências.',N.man,false,'ALTA',li,short(e,140)),e,null,'ref_autor');
-      if(tp==='ref_livro'&&!/[A-ZÀ-Ýa-zà-ÿ\]]\s*:\s*[^:]{2,60},\s*\[?(19|20)\d{2}/.test(e)&&!/s\.l\.|s\.n\./.test(e))FX(P('ref.livroel.'+ix,'referencias','REFERÊNCIAS','MEDIA','FRA','Referência de livro sem a sequência “Local: Editora, ano.”.','Local, editora e ano são elementos essenciais da referência de livro.','Complete com cidade, dois-pontos, editora, vírgula e ano (use [s.l.] / [s.n.] se não identificados).','Referência com Local: Editora, ano.',N.man,false,'MEDIA',li,short(e,140)),e,null,'ref_livro');
-      if(tp==='ref_artigo'&&!/\bp\.\s*\d/.test(fr))FX(P('ref.artel.'+ix,'referencias','REFERÊNCIAS','MEDIA','FRA','Artigo sem paginação (p. inicial-final).','A paginação é elemento essencial da referência de artigo.','Inclua “p. X-Y” conforme o periódico.','Artigo com v., n., p. e ano.',N.man,false,'MEDIA',li,short(e,140)),e,null,'ref_artigo');
+      if(tp==='ref_livro'&&!/dispon[ií]vel em|https?:\/\//i.test(e)&&!/[A-ZÀ-Ýa-zà-ÿ\]]\s*:\s*[^:]{2,60},\s*\[?(19|20)\d{2}/.test(e)&&!/s\.l\.|s\.n\./.test(e))FX(P('ref.livroel.'+ix,'referencias','REFERÊNCIAS','MEDIA','FRA','Referência de livro sem a sequência “Local: Editora, ano.”.','Local, editora e ano são elementos essenciais da referência de livro.','Complete com cidade, dois-pontos, editora, vírgula e ano (use [s.l.] / [s.n.] se não identificados).','Referência com Local: Editora, ano.',N.man,false,'MEDIA',li,short(e,140)),e,null,'ref_livro');
+      if(tp==='ref_artigo'&&!/\bp\.\s*\d/.test(fr)&&!/\bdoi\b|doi\.org|dispon[ií]vel em|https?:\/\//i.test(fr))FX(P('ref.artel.'+ix,'referencias','REFERÊNCIAS','MEDIA','FRA','Artigo sem paginação (p. inicial-final).','A paginação é elemento essencial da referência de artigo.','Inclua “p. X-Y” conforme o periódico.','Artigo com v., n., p. e ano.',N.man,false,'MEDIA',li,short(e,140)),e,null,'ref_artigo');
       var lr=lines[li]||{};
       if(isDocx&&lr.pi!=null){var noAut=/^[A-ZÀ-Ý]{2,}\s[a-zà-ÿ]/.test(e);
         if(lr.bold<0.03&&!noAut&&tp!=='ref_legislacao'&&tp!=='ref_jurisprudencia')FX(P('ref.negrito.'+ix,'referencias','ABNT','BAIXA','OBJ','Título da obra sem destaque em negrito.','O Manual FCRN adota o negrito como destaque do título (exceto obras sem autoria).','Aplique negrito somente ao título (o subtítulo, após dois-pontos, fica sem destaque).','Título em negrito.',N.man,false,'ALTA',li,short(e,140)),e,null,'ref_regras');}
