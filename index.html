@@ -2650,7 +2650,7 @@ function segment(lines){
   segs=segs.filter(function(sg){return sg.k!=='_sec';});
   segs.forEach(function(sg){if(sg.k==='sumario'){S.sumario=sg;return;}if(!S[sg.k]||sg.text.length>S[sg.k].text.length)S[sg.k]=sg;});
   var vazias={};Object.keys(S).forEach(function(k){if(k!=='sumario'&&k!=='objetivos'&&k!=='cronograma'&&!S[k].text.trim()){vazias[k]=S[k].i;delete S[k];}});
-  if(S.sumario){var acc=[];for(var x=S.sumario.i+1;x<lines.length;x++){var tt=lines[x].t;if(tt.length>90)break;if(headKey(lines[x])==='referencias'&&!acc.length)break;if(headKey(lines[x])){var sg2=segs.filter(function(q){return q.i===x;})[0];if(sg2&&sg2.text.length>220)break;}acc.push(tt);if(acc.length>40)break;}
+  if(S.sumario){var acc=[];for(var x=S.sumario.i+1;x<lines.length;x++){var tt=lines[x].t;if(tt.length>90&&(tt.match(/(^|\s)\d+(\.\d+)*\s+[A-ZÀ-Ý]/g)||[]).length<3)break;if(headKey(lines[x])==='referencias'&&!acc.length)break;if(headKey(lines[x])){var sg2=segs.filter(function(q){return q.i===x;})[0];if(sg2&&sg2.text.length>220)break;}if(tt.length>90)tt=tt.replace(/\s+(?=\d+(?:\.\d+)*\s+[A-ZÀ-Ý])/g,'\n');acc.push(tt);if(acc.length>40)break;}
     S.sumario.text=acc.join('\n');S.sumario.end=S.sumario.i+1+acc.length;if(!acc.length){vazias.sumario=S.sumario.i;delete S.sumario;}}
   Object.keys(vazias).forEach(function(k){if(S[k])delete vazias[k];});
   return {S:S,first:c.length?c[0].i:lines.length,vazias:vazias};
@@ -2860,9 +2860,17 @@ var MESES=['jan.','fev.','mar.','abr.','maio','jun.','jul.','ago.','set.','out.'
 var MESFULL={janeiro:0,fevereiro:1,'março':2,marco:2,abril:3,maio:4,junho:5,julho:6,agosto:7,setembro:8,outubro:9,novembro:10,dezembro:11};
 var SIGLAS='IBGE ABNT OMS WHO OPAS ANVISA SUS CFN CRN STF STJ TST TSE TRF TJRN IPEA FAO UNICEF CNS CNJ NEPA TACO POF PNS VIGITEL SISVAN MEC INEP CAPES CNPQ ONU OCDE IBOPE FIOCRUZ USP UFRN UERN UFERSA FCRN UNESCO OIT IPCC CDC FDA EFSA NIH IOM ADA SBD SBC CFM COFEN CONEP PNAE PNAN SISAN CONSEA DATASUS SINAN IDEC INMETRO MAPA EMBRAPA OAB CF CPP CP CPC CLT ECA LGPD'.split(' ');
 function titleCase(w){return w.split(/(-)/).map(function(x){return x==='-'?x:x.charAt(0)+x.slice(1).toLowerCase();}).join('');}
+/* siglas que o próprio trabalho define (lista de siglas, "(CNJ)" no texto, entidade nas referências): ficam em maiúsculas */
+var FPC_KEEP={};
+function docSiglas(all,refEnts){var k={};
+  (all.match(/\(([A-ZÀ-Ý]{2,8})\)/g)||[]).forEach(function(x){k[x.slice(1,-1)]=1;});
+  (refEnts||[]).forEach(function(e){var head=e.split(/\.\s/)[0];
+    if(/^[A-ZÀ-Ý][A-ZÀ-Ý'\- ]+(\s*\([^)]*\))?$/.test(head)&&!/,/.test(head)){var ws=head.replace(/\(.*?\)/g,'').trim().split(/\s+/).filter(function(w){return !PARTIC.test(nrm(w));});if(ws.length>=2)k[ws.map(function(w){return w.charAt(0);}).join('').toUpperCase()]=1;var pm=head.match(/\(([A-ZÀ-Ý.]{2,})\)/);if(pm)k[pm[1].replace(/\./g,'')]=1;}
+    (e.slice(head.length).match(/\b[A-ZÀ-Ý]{2,6}\b/g)||[]).forEach(function(w){k[w]=1;});});
+  return k;}
 function fixParenCit(raw){
   var s=raw;
-  s=s.replace(/\b([A-ZÀ-Ý][A-ZÀ-Ý'\-]{2,})\b/g,function(w){return SIGLAS.indexOf(w)>=0||w.length<=3&&!/[AEIOUÁÉÍÓÚÂÊÔÃÕ]/.test(w)?w:titleCase(w);});
+  s=s.replace(/\b([A-ZÀ-Ý][A-ZÀ-Ý'\-]{2,})\b/g,function(w){return SIGLAS.indexOf(w)>=0||FPC_KEEP[w]||w.length<=3&&!/[AEIOUÁÉÍÓÚÂÊÔÃÕ]/.test(w)?w:titleCase(w);});
   s=s.replace(/\bE(t al)\b/,'e$1').replace(/\bet al(?!\.)/g,'et al.').replace(/\bet\.\s*al\.?/g,'et al.');
   s=s.replace(/([A-Za-zÀ-ÿ.])\s+((19|20)\d{2}[a-z]?)\b/g,function(m,a,y,_,off,str){var before=str.slice(Math.max(0,off-6),off+1);return /apud$/i.test(str.slice(0,off+1).trim())?m:a+', '+y;});
   s=s.replace(/apud,\s/g,'apud ');
@@ -2916,6 +2924,7 @@ function sitOf(cnt){if(cnt.CRITICA>0)return {k:'rep',t:'Fora do padrão instituc
 function analyze(doc,opt){
   opt=opt||{};var curso=opt.curso||'geral',saude=/nutri|saude/.test(curso),dir=curso==='direito';
   var lines=doc.lines,all=lines.map(function(l){return l.t;}).join('\n'),seg=segment(lines),S=seg.S,C=[],FORT=[],isDocx=doc.kind==='DOCX';
+  FPC_KEEP=docSiglas(all,S.referencias?refEntries(S.referencias,isDocx):[]);
   function sec(k){return S[k]?S[k].text:'';}
   function findLine(sub,a,b){if(!sub)return a!=null?a:0;var s=nrm(sub).slice(0,40);a=a||0;b=b==null?lines.length:b;for(var i=a;i<b;i++){if(nrm(lines[i].t).indexOf(s)>=0)return i;}
     var s2=nrm(sub).slice(0,18);for(var j=a;j<b;j++){if(nrm(lines[j].t).indexOf(s2)>=0)return j;}return a;}
@@ -2942,7 +2951,7 @@ function analyze(doc,opt){
     var cand=mg.map(function(o){return o.t;}).filter(function(t){var n=nrm(t);return t.length>25&&t.length<260&&!/(faculdade|universidade|unicatolica|curso de|centro universitario|projeto de pesquisa apresentado|trabalho de conclusao|monografia apresentada|orientador|professor|^mossoro\/rn$|^\d{4}$|disciplina|requisito)/.test(n);});
     cand.sort(function(a,b){return b.length-a.length;});title=cand[0]||'';}
   /* --- problema --- */
-  function qs(t){return (t.replace(/\n/g,' ').match(/[^.?!:]*\?/g)||[]).map(function(x){return x.trim();}).filter(function(x){return wc(x)>5;});}
+  function qs(t){t=t.split('\n').filter(function(l){return !TPLRES.some(function(r){return r[0].test(l);});}).join('\n').replace(/\?{2,}/g,'');return (t.replace(/\n/g,' ').replace(/(\d)\.(\d)/g,'$1․$2').replace(/\b(n|art|arts|inc|al|p|v|ed)\.\s/gi,'$1․ ').match(/[^.?!:]*\?/g)||[]).map(function(x){return x.replace(/․/g,'.').trim();}).filter(function(x){return wc(x)>5;});}
   var prob='',q1=qs(sec('problema'));if(q1.length)prob=q1[q1.length-1];
   if(!prob){var q2=qs(sec('introducao'));if(q2.length)prob=q2[q2.length-1];}
   if(!prob){var q3=qs(all);if(q3.length){q3.sort(function(a,b){return b.length-a.length;});prob=q3[0];}}
@@ -3015,7 +3024,8 @@ function analyze(doc,opt){
     if(fp)P('just.pessoal','justificativa','PORTUGUÊS','MEDIA','OBJ','Linguagem pessoal/opinativa na justificativa ('+fp+' ocorrência(s)).','O texto científico é impessoal; opinião não substitui razão verificável.','Use construções impessoais (“observa-se”, “verifica-se”) e troque opinião por evidência.','Não há primeira pessoa nem “acho/acredito”.',N.e2,false,'ALTA',findLine((jt.match(/\b(eu|acho|acredito|minha|meu)\b[^.]{0,30}/i)||[''])[0]||'',S.justificativa.i,S.justificativa.end));
     var adj=jt.match(/\b(muito importante|extremamente|super importante|muito grave|fundamental demais|absurd\w*|lamentáve\w*|vergonhos\w*|terríve\w*)/i);
     if(adj)P('just.emocional','justificativa','COESÃO / COERÊNCIA','BAIXA','SUG','Adjetivação vazia ou linguagem emocional (“'+adj[0]+'”).','Adjetivos não demonstram relevância.','Substitua por dados com fonte, público afetado e impacto concreto.','Relevância demonstrada por evidências.',N.e2,false,'ALTA',findLine(adj[0],S.justificativa.i,S.justificativa.end));
-    var nums=(jt.match(/[^.\n]*\d+([.,]\d+)?\s?%[^.\n]*/g)||[]).filter(function(s){return citations(s).length===0;});
+    /* a fonte pode vir na mesma frase ou na frase seguinte do mesmo parágrafo */
+    var nums=(jt.match(/[^.\n]*\d+([.,]\d+)?\s?%[^.\n]*/g)||[]).filter(function(s){if(citations(s).length)return false;var i=jt.indexOf(s),after=i<0?'':jt.slice(i+s.length,i+s.length+400).split('\n')[0];return citations(after.split(/\.\s/).slice(0,2).join('. ')).length===0;});
     nums.slice(0,3).forEach(function(s,ix){P('just.dado.'+ix,'justificativa','FONTES','ALTA','OBJ','Dado numérico sem fonte: “'+short(s.trim(),90)+'”.','Afirmações empíricas exigem fonte primária; dados sem fonte podem estar errados ou inventados (inclusive por IA).','Indique a fonte oficial consultada'+(saude?' (ex.: VIGITEL, PNS, POF, SISVAN, Ministério da Saúde)':'')+' e o ano do dado.','Todo número tem fonte e ano.',N.ia,true,'ALTA',findLine(s.trim().slice(0,40),S.justificativa.i,S.justificativa.end),short(s.trim()));});
   }
   if(S.justificativa&&S.introducao){var ovJ=overlap(sec('justificativa'),sec('introducao'));if(ovJ>=0.75)P('just.repete','justificativa','JUSTIFICATIVA','BAIXA','SUG','A justificativa repete em grande parte o vocabulário da introdução ('+Math.round(ovJ*100)+'% de sobreposição).','A justificativa responde “por quê?” — relevância social, jurídica/teórica e acadêmica — e não deve repetir a introdução.','Reescreva a justificativa defendendo a importância da pesquisa nos três eixos, sem reapresentar o tema.','Justificativa com argumentos próprios, distintos da introdução.',N.e2,false,'MEDIA',secLine('justificativa'));}
@@ -3271,7 +3281,7 @@ function analyze(doc,opt){
       if(fr!==e){if(/\d\s*[ªº°]|\d+\s+ed\b|\d\.ed/i.test(e))pr3.push('edição fora do padrão “2. ed.”');if(/\bpp\.|pág\./i.test(e))pr3.push('páginas devem ser indicadas com “p.”');if(/\b[Vv]ol\./.test(e))pr3.push('volume deve ser “v.”');if(/[Nn][º°o]\.?\s*\d/.test(e)&&/n\. \d/.test(fr)&&!/n\. \d/.test(e)&&!/\b(lei|decreto|resolu|portaria|emenda|medida provis|constitui|instru[cç][aã]o normativa|s[uú]mula|ac[oó]rd[aã]o|processo|recurso|habeas|licita[cç][aã]o|preg[aã]o|edital)\b/i.test(e))pr3.push('número de periódico deve ser “n.”');if(/acess(o|ado) em:?\s*\d{1,2}\/|acess(o|ado) em:?\s*\d{1,2} de/i.test(e))pr3.push('data de acesso deve ter mês abreviado (ex.: 15 jun. 2019)');if(/<\s*https?:/i.test(e))pr3.push('endereço eletrônico não leva < >');if(/^[A-ZÀ-Ý][a-zà-ÿ]+,\s/.test(e))pr3.push('sobrenome do autor deve estar em MAIÚSCULAS');if(/https?:\/\//.test(e)&&!/Dispon[ií]vel em/i.test(e)&&!/\bDOI:?\s*https?:/i.test(e))pr3.push('falta “Disponível em:”');
         if(rN++<12)FX(P('ref.form.'+ix,'referencias','ABNT','BAIXA','OBJ','Referência fora do padrão do Manual FCRN: '+(pr3.join('; ')||'pontuação/elementos')+'.','As referências devem seguir rigorosamente a ordem e a pontuação dos modelos do manual.','Substitua pela forma corrigida e confira os demais elementos na obra.','Referência no padrão do modelo correspondente.',N.a6023,false,'MEDIA',li,short(e,140)),e,fr,tp);}
       if(/_{3,}/.test(e))FX(P('ref.traco.'+ix,'referencias','ABNT','BAIXA','OBJ','Uso de traço no lugar do nome do autor repetido.','O Manual FCRN determina que o nome do autor seja indicado em todas as obras.','Repita o nome do autor.','Autor indicado em todas as referências.',N.man,false,'ALTA',li,short(e,140)),e,null,'ref_autor');
-      if(tp==='ref_livro'&&!/dispon[ií]vel em|https?:\/\//i.test(e)&&!/[A-ZÀ-Ýa-zà-ÿ\]]\s*:\s*[^:]{2,60},\s*\[?(19|20)\d{2}/.test(e)&&!/s\.l\.|s\.n\./.test(e))FX(P('ref.livroel.'+ix,'referencias','REFERÊNCIAS','MEDIA','FRA','Referência de livro sem a sequência “Local: Editora, ano.”.','Local, editora e ano são elementos essenciais da referência de livro.','Complete com cidade, dois-pontos, editora, vírgula e ano (use [s.l.] / [s.n.] se não identificados).','Referência com Local: Editora, ano.',N.man,false,'MEDIA',li,short(e,140)),e,null,'ref_livro');
+      if(tp==='ref_livro'&&!/dispon[ií]vel em|\bdoi\b|https?:\/\//i.test(e)&&!/[A-ZÀ-Ýa-zà-ÿ\]]\s*:\s*[^:]{2,60},\s*\[?(19|20)\d{2}/.test(e)&&!/s\.l\.|s\.n\./.test(e))FX(P('ref.livroel.'+ix,'referencias','REFERÊNCIAS','MEDIA','FRA','Referência de livro sem a sequência “Local: Editora, ano.”.','Local, editora e ano são elementos essenciais da referência de livro.','Complete com cidade, dois-pontos, editora, vírgula e ano (use [s.l.] / [s.n.] se não identificados).','Referência com Local: Editora, ano.',N.man,false,'MEDIA',li,short(e,140)),e,null,'ref_livro');
       if(tp==='ref_artigo'&&!/\bp\.\s*\d/.test(fr)&&!/\bdoi\b|doi\.org|dispon[ií]vel em|https?:\/\//i.test(fr))FX(P('ref.artel.'+ix,'referencias','REFERÊNCIAS','MEDIA','FRA','Artigo sem paginação (p. inicial-final).','A paginação é elemento essencial da referência de artigo.','Inclua “p. X-Y” conforme o periódico.','Artigo com v., n., p. e ano.',N.man,false,'MEDIA',li,short(e,140)),e,null,'ref_artigo');
       var lr=lines[li]||{};
       if(isDocx&&lr.pi!=null){var noAut=/^[A-ZÀ-Ý]{2,}\s[a-zà-ÿ]/.test(e);

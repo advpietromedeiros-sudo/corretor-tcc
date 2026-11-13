@@ -21,16 +21,20 @@ const T = [
   'Duas observações se impõem (Protocolo do CNJ e Resolução CNJ nº 492/2023) para a análise das decisões judiciais selecionadas.',
   'Magalhães (2025), com base em Coelho (2023) e Lima et al. (2023), descreve os efeitos sobre os filhos em diferentes níveis.',
   'A violência só se torna inteligível como estrutura (Saffioti, 2004 apud Façanha, 2026), e não como episódio isolado de conflito familiar.',
-  'Diante desse cenário, pergunta-se: em que medida o ordenamento jurídico brasileiro reconhece a instrumentalização dos filhos?',
-  '2 JUSTIFICATIVA', 'A pesquisa se justifica pela atualidade do tema e pela recente alteração legislativa promovida pela Lei nº 15.384/2026.',
+  'Diante desse cenário, pergunta-se: em que medida o ordenamento jurídico brasileiro reconhece a instrumentalização dos filhos, considerando as Leis nº 14.713/2023 e nº 15.384/2026?',
+  '2 JUSTIFICATIVA', 'Segundo pesquisa nacional, 27% das brasileiras declararam ter sofrido violência doméstica. Entre elas, 58% não comunicaram a agressão (Brasil, 2025). A pesquisa se justifica pela atualidade do tema.',
   '3 HIPÓTESES', 'Hipótese 1 - As alterações legislativas ampliam a proteção da mulher.',
-  '4 OBJETIVOS', '4.1 Objetivo geral', 'Analisar em que medida o ordenamento jurídico brasileiro reconhece a instrumentalização dos filhos.',
+  '4 OBJETIVOS', '4.1 Objetivo geral', 'Analisar em que medida o ordenamento jurídico brasileiro reconhece a instrumentalização dos filhos, considerando as Leis nº 14.713/2023 e nº 15.384/2026.',
   '4.2 Objetivos específicos', 'Examinar a evolução legislativa;', 'Identificar critérios de prova.',
   '5 FUNDAMENTAÇÃO TEÓRICA', 'A literatura (Vaccaro, 2023; Magalhães, 2025) descreve o fenômeno como violência de gênero por substituição.',
   '6 METODOLOGIA', 'Pesquisa qualitativa, bibliográfica e documental, com análise de decisões judiciais.',
   '7 CRONOGRAMA', 'Etapas', 'Levantamento bibliográfico',
   '8 PROPOSTA DE SUMÁRIO PARA A MONOGRAFIA',
+  '1 INTRODUÇÃO 2 VIOLÊNCIA VICÁRIA E TUTELA JURÍDICA 2.1 Gênero e poder 2.2 Lei nº 15.384/2026 e o art. 121-B 3 A PROVA DA FINALIDADE 3.1 Elementos de prova',
+  '4 CONSIDERAÇÕES FINAIS',
+  'REFERÊNCIAS',
   'REFERÊNCIAS DO PROJETO',
+  'BRASIL. Senado Federal. Pesquisa Nacional de Violência contra a Mulher. Brasília, DF: Senado Federal, 2025.',
   'CONSELHO NACIONAL DE JUSTIÇA. Protocolo para julgamento com perspectiva de gênero. Brasília, DF: CNJ, 2021. Disponível em: https://www.cnj.jus.br/protocolo. Acesso em: 1 nov. 2026.',
   'FAÇANHA, Josanne Cristina Ribeiro Ferreira. Matar para punir. 2026. Trabalho de Conclusão de Curso (Graduação em Direito) – Universidade Federal, Fortaleza, 2026.',
   'MAGALHÃES, Roberta Cordeiro de Melo. Violência vicária. Revista de Ciências Jurídicas, Recife, v. 5, n. 2, p. 10-30, 2025.',
@@ -44,16 +48,19 @@ const PROIBIDOS = [
   [/Ano divergente.*FAÇANHA/, 'ano do autor original (apud) comparado com a obra consultada'],
   [/não localizada no texto: (CONSELHO NACIONAL|ORGANIZACAO DOS ESTADOS)/, 'entidade citada pela sigla acusada como não citada'],
   [/“(COELHO|LIMA)” é citado no texto, mas não consta/, 'citação indireta tratada como referência faltante'],
+  [/Dado numérico sem fonte/, 'dado com fonte na frase seguinte acusado sem fonte'],
+  [/alinhamento ao problema/, 'pergunta cortada no ponto de “15.384/2026”'],
+  [/Numeração progressiva do sumário|“Proposta de sumário” tem apenas|Proposta de sumário” não foi/, 'proposta de sumário em parágrafo único ignorada'],
+  [/^FIX:.*Oea/, 'sigla OEA convertida para “Oea” na correção'],
 ];
 const EXIGIDOS = [
   [/“COELHO” é citado por meio de Magalhães/, 'citação indireta sem apud apontada'],
-  [/“Proposta de sumário” tem apenas o título/, 'seção vazia apontada como vazia'],
 ];
 
 const b = await puppeteer.launch({ executablePath: CHROME, headless: true });
 const p = await b.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
 await p.goto(pathToFileURL(path.join(ROOT, 'index.html')).href);
-const itens = await p.evaluate((T) => window.__cx.analyze({ kind: 'PDF', lines: T }, { curso: 'geral', tipo: 'B' }).C.map(c => c.problema), T);
+const itens = await p.evaluate((T) => window.__cx.analyze({ kind: 'PDF', lines: T }, { curso: 'geral', tipo: 'B' }).C.flatMap(c => [c.problema, c.fix ? 'FIX: ' + c.fix : '']).filter(Boolean), T);
 await b.close();
 let falhas = 0;
 for (const [re, nome] of PROIBIDOS) { const hit = itens.filter(x => re.test(x)); if (hit.length) { falhas++; console.log('  ✘ ' + nome + ': ' + hit.join(' | ')); } else console.log('  ✔ sem ' + nome); }
