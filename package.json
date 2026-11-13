@@ -8,8 +8,8 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "node tests/regressao_citacoes.mjs && node tests/e2e.mjs",
-    "test:regressao": "node tests/regressao_citacoes.mjs"
+    "test": "node tests/regressao_citacoes.mjs && node tests/regressao_caso2.mjs && node tests/e2e.mjs",
+    "test:regressao": "node tests/regressao_citacoes.mjs && node tests/regressao_caso2.mjs"
   },
   "keywords": [],
   "author": "",
