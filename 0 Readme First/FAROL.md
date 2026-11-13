@@ -1,6 +1,6 @@
 # 🔦 FAROL — Corretor Acadêmico
 
-**Atualizado em 12/11/2026, 22h04.**
+**Atualizado em 12/11/2026, 22h16.**
 
 🌐 **Publicado (público, D-009):** https://advpietromedeiros-sudo.github.io/corretor-tcc/ · repositório `advpietromedeiros-sudo/corretor-tcc`.
 
@@ -23,6 +23,8 @@
 - **21h13 (commit 55f2fec):** varredura de falsos positivos de citação e referência a partir de uma monografia real (PDF): de 6 altas, 16 médias e 20 baixas para 0 altas, 1 média e 8 baixas, todas conferidas no arquivo. Novo teste tests/regressao_citacoes.mjs (9 verificações) entra no npm test. Teste: 49 ok + 9 ok, 0 falhas. Pages publicado e conferido.
 
 - **22h04 (commit 9f5e6ca):** dupla checagem citação x referência (referências primeiro, filtro de forma da chamada, contraprova antes de acusar) e introdução logo após o sumário do Word. Pré-projeto real: de 10 para 3 altas, as 3 restantes reais. Novo teste tests/regressao_caso2.mjs (7 verificações). Teste: 9 + 7 + 49 ok, 0 falhas. Pages conferido.
+
+- **22h16:** revisão dos achados restantes (pergunta cortada em números, sigla OEA na correção, proposta de sumário em parágrafo único, dado com fonte na frase seguinte, DOI como livro). Pré-projeto real: 1 alta, real. Teste: 9 + 10 + 49 ok.
 
 ## Pendente
 
